@@ -110,21 +110,18 @@ def peak_overlap(peaks, chr, start, end):
     return features
 
 
-def overlapping_peaks(files, ids):
+def overlapping_peaks(files: list[str], ids: list[str]):
     """
     Takes a list of file and finds the common (if any) overlapping regions
     """
 
     location_id_map = collections.defaultdict(str)
-    location_chrs = collections.defaultdict(str)
-    location_starts = collections.defaultdict(int)
-    location_ends = collections.defaultdict(int)
+    location_map = collections.defaultdict(int)
     location_bins = collections.defaultdict(set)
     locations = []
 
-    for i in range(0, len(files)):
-        file = files[i]
-        id = ids[i]
+    for filei, file in enumerate(files):
+        id = ids[filei]
 
         f = open(file, 'r')
 
@@ -145,7 +142,7 @@ def overlapping_peaks(files, ids):
                     print(f'Invalid line: {line}', file=sys.stderr)
                     continue
 
-            lid = f'{id}={location.chr}:{location.start}-{location.end}'
+            lid = f'{id}={str(location)}'
 
             #sys.stderr.write('lid ' + lid + '\n')
 
@@ -153,9 +150,7 @@ def overlapping_peaks(files, ids):
 
             location_id_map[lid] = id
 
-            location_chrs[lid] = location.chr
-            location_starts[lid] = location.start
-            location_ends[lid] = location.end
+            location_map[lid] = location
 
             bin_start = int(location.start / BIN_SIZE)
             bin_end = int(location.end / BIN_SIZE)
@@ -165,7 +160,7 @@ def overlapping_peaks(files, ids):
 
         f.close()
 
-    return overlapping(ids, location_id_map, location_chrs, location_starts, location_ends, location_bins, locations)
+    return overlapping(ids, location_id_map, location_map, location_bins, locations)
 
 
 def overlapping_peak_tables(files, ids):
@@ -174,9 +169,7 @@ def overlapping_peak_tables(files, ids):
     """
 
     location_id_map = collections.defaultdict(str)
-    location_chrs = collections.defaultdict(str)
-    location_starts = collections.defaultdict(int)
-    location_ends = collections.defaultdict(int)
+    location_map = collections.defaultdict(int)
     location_bins = collections.defaultdict(set)
     locations = []
 
@@ -205,9 +198,7 @@ def overlapping_peak_tables(files, ids):
             #sys.stderr.write(id + '\n')
             location_id_map[lid] = id
 
-            location_chrs[lid] = location.chr
-            location_starts[lid] = location.start
-            location_ends[lid] = location.end
+            location_map[lid] = location
 
             bin_start = int(location.start / BIN_SIZE)
             bin_end = int(location.end / BIN_SIZE)
@@ -217,10 +208,10 @@ def overlapping_peak_tables(files, ids):
 
         f.close()
 
-    return overlapping(ids, location_id_map, location_chrs, location_starts, location_ends, location_bins, locations)
+    return overlapping(ids, location_id_map, location_map, location_bins, locations)
 
 
-def overlapping(ids, location_id_map, location_chrs, location_starts, location_ends, location_bins, locations):
+def overlapping(ids, location_id_map: dict[str, str], location_map: dict[str, genomic.Location], location_bins: dict[int, list[str]], locations: list[str]):
     """
     Calculates the maximum overlaps between a set of sample locations
     """
@@ -237,20 +228,18 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
 
     total *= total
 
-    print(f'Processing {len(locations)} {locations}...', file=sys.stderr)
+    print(f'Processing {len(locations)}...', file=sys.stderr)
 
-    p = 0
+    p = 1
 
     # keep track of all locations that have been allocated at least once
     allocated = set()
 
-    for i in range(0, len(locations)):
-        # of the form id=chrN:start-end
-        location1 = locations[i]
+    for location1 in locations:
+        # of the form id=chrN:start-end, an lid
 
-        chr1 = location_chrs[location1]
-        start1 = location_starts[location1]
-        end1 = location_ends[location1]
+        # get its location
+        loc1 = location_map[location1]
         #group1 = location_group_map[location1]
 
         # if group1 != 'none':
@@ -260,8 +249,8 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
 
         test_locations = set()
 
-        bin_start = int(start1 / BIN_SIZE)
-        bin_end = int(end1 / BIN_SIZE)
+        bin_start = int(loc1.start / BIN_SIZE)
+        bin_end = int(loc1.end / BIN_SIZE)
 
         for bin in range(bin_start, bin_end + 1):
             for location in location_bins[bin]:
@@ -274,8 +263,9 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
 
         while not exhausted:
             grouped_locations = [location1]
-            start1 = location_starts[location1]
-            end1 = location_ends[location1]
+
+            # reset for each group search
+            loc1 = location_map[location1]
 
             for location2 in test_locations:
                 if location1 == location2:
@@ -286,9 +276,7 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
 
                 #sys.stderr.write(location1 + ' ' + location2 + '\n')
 
-                chr2 = location_chrs[location2]
-                start2 = location_starts[location2]
-                end2 = location_ends[location2]
+                loc2 = location_map[location2]
                 #group2 = location_group_map[location2]
 
                 if p % 10000000 == 0:
@@ -299,41 +287,37 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
                 # if group2 != 'none':
                 #  continue
 
-                if chr1 != chr2:
+                if loc1.chr != loc2.chr:
                     continue
 
                 # Given the two locations we are testing, sort them so
                 # the starts and ends are in order.
-                if (start1 <= start2):
-                    min_start = start1
-                    min_end = end1
-                    max_start = start2
-                    max_end = end2
+                if (loc1.start <= loc2.start):
+                    min_loc = loc1
+                    max_loc = loc2
                 else:
-                    min_start = start2
-                    min_end = end2
-                    max_start = start1
-                    max_end = end1
+                    min_loc = loc2
+                    max_loc = loc1
 
                 overlap = -1
                 overlap_start = -1
 
-                if max_start == min_start and max_end > min_end:
+                if max_loc.start == min_loc.start and max_loc.end > min_loc.end:
                     # Peak 1 and 2 start at the same point but peak 2 is wider
                     # so the overlap region is peak 1
-                    overlap = min_end - min_start + 1
-                    overlap_start = min_start
-                elif max_start >= min_start and max_end <= min_end:
+                    overlap = min_loc.end - min_loc.start + 1
+                    overlap_start = min_loc.start
+                elif max_loc.start >= min_loc.start and max_loc.end <= min_loc.end:
                     # Peak 1 is wider than peak 2 and contains it
                     # so the overlap region is peak 2
-                    overlap = max_end - max_start + 1
-                    overlap_start = max_start
-                elif min_start < max_start and min_end > max_start:
-                    # Peak one starts before peak 2 but ends within peak 2
+                    overlap = max_loc.end - max_loc.start + 1
+                    overlap_start = max_loc.start
+                elif min_loc.start < max_loc.start and min_loc.end > max_loc.start:
+                    # Peak 1 starts before peak 2 but ends within peak 2
                     # so the overlap is the start of peak 2 to the end of
                     # peak 1
-                    overlap = min_end - max_start + 1
-                    overlap_start = max_start
+                    overlap = min_loc.end - max_loc.start + 1
+                    overlap_start = max_loc.start
                 else:
                     pass
 
@@ -345,8 +329,8 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
                 # region so that each subsequent match must be within this region
                 # this prevents long peaks that overlap two smaller peaks who
                 # themselves do not overlap each other
-                start1 = overlap_start
-                end1 = start1 + overlap - 1
+                loc1 = genomic.Location(
+                    loc1.chr, overlap_start, overlap_start + overlap - 1)
 
                 grouped_locations.append(location2)
 
@@ -357,7 +341,7 @@ def overlapping(ids, location_id_map, location_chrs, location_starts, location_e
             # to another group. This prevents duplicate entries of the whole
             # region by itself plus any overlapping regions
             if len(grouped_locations) > 1 or location1 not in allocated:
-                overlap_location = f'{chr1}:{start1}-{end1}'
+                overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
 
                 for location in grouped_locations:
                     # id is a sample id
@@ -611,9 +595,9 @@ class NearestPeak:
 
             # perfect match
             if test_start > mid_point:
-                pe = pm # - 1
+                pe = pm  # - 1
             elif test_start < mid_point:
-                ps = pm # + 1
+                ps = pm  # + 1
             else:
                 return self._peak_start_map[chr][mid_point]
 
@@ -660,9 +644,9 @@ class NearestPeak:
 
             # perfect match
             if test_start > mid_point:
-                pe = pm #- 1
+                pe = pm  # - 1
             elif test_start < mid_point:
-                ps = pm #+ 1
+                ps = pm  # + 1
             else:
                 return 0
 
@@ -895,7 +879,8 @@ class PeaksPerGeneAnnotation(TableAnnotation):
         header = np.array(header)
 
         loc_col = text.find_index(header, LOCATION_HEADING)
-        gene_col = text.find_index(header, headings.GENE_SYMBOL) # np.where(header == headings.GENE_SYMBOL)[0][0]
+        # np.where(header == headings.GENE_SYMBOL)[0][0]
+        gene_col = text.find_index(header, headings.GENE_SYMBOL)
 
         peaks_genes = collections.defaultdict(set)
         genes_peaks = collections.defaultdict(set)
@@ -908,7 +893,7 @@ class PeaksPerGeneAnnotation(TableAnnotation):
                 if gene != text.NA:
                     peaks_genes[loc].add(gene)
                     genes_peaks[gene].add(loc)
-        
+
         # allocate array to save using append
         counts = np.zeros(df.shape[0], dtype=int)
 
@@ -933,7 +918,7 @@ class PeaksPerGeneAnnotation(TableAnnotation):
 
         return df
 
-        
+
 class AnnotatePeak:
     """
     Core annotation for annotating peaks/regions
@@ -953,7 +938,7 @@ class AnnotatePeak:
         # pychipseq.human.tss.RefSeqAnnotation(prom_ext_5p, prom_ext_3p, self.bin_size)
 
         #self._refseq_annotation = refseq_annotation
-        #self._refseq_genes = refseq_genes  # RefSeqGenes()
+        # self._refseq_genes = refseq_genes  # RefSeqGenes()
 
         # pychipseq.human.tss.RefSeqTss(prom_ext_5p, prom_ext_3p)
         #self._refseq_start = refseq_start
@@ -969,7 +954,7 @@ class AnnotatePeak:
         #self.mir_annotation = pychipseq.human.mir.MirAnnotation(bin_size)
         #self.mir_transcript_annotation = pychipseq.human.mir.MirTranscriptAnnotation()
 
-        #self._promoter_type = genomic.promoter_heading f'(prom=-{prom_ext_5p / 1000}/+{prom_ext_3p / 1000}kb)'
+        # self._promoter_type = genomic.promoter_heading f'(prom=-{prom_ext_5p / 1000}/+{prom_ext_3p / 1000}kb)'
 
         #
         # Modules are self contained annotation blocks to make it easier
@@ -979,7 +964,7 @@ class AnnotatePeak:
         self._annotation_modules: list[genomic.Annotation] = []
         self._table_annotation_modules: list[TableAnnotation] = []
 
-        #self._annotation_modules.append(AnnotateGene(
+        # self._annotation_modules.append(AnnotateGene(
         #    self._promoter_type, refseq_annotation, refseq_genes))
 
         # self._annotation_modules.append(pychipseq.human.genomic.SimpleTandemRepeats())
@@ -1017,7 +1002,6 @@ class AnnotatePeak:
 
     def print_metadata(self):
         print(json.dumps(self.metadata))
-    
 
     @property
     def header(self) -> list[str]:
@@ -1097,19 +1081,23 @@ class AnnotatePeak:
         #
 
         if 'TF_targets' in file:
-            file_header = [LOCATION_HEADING, WIDTH_HEADING, PVALUE_HEADING, SCORE_HEADING]
+            file_header = [LOCATION_HEADING, WIDTH_HEADING,
+                           PVALUE_HEADING, SCORE_HEADING]
         elif 'seacr' in file:
-            file_header = [LOCATION_HEADING, WIDTH_HEADING, "Total Score", "Max Score"]
+            file_header = [LOCATION_HEADING,
+                           WIDTH_HEADING, "Total Score", "Max Score"]
+        elif 'overlap' in file:
+            file_header = [LOCATION_HEADING,
+                           WIDTH_HEADING, "Total Score", "Max Score", "Number Of Overlapping Peaks", "P1", "P2"]
+            # skip header
+            f.readline()
         elif 'bed' in file:
             file_header = [LOCATION_HEADING, WIDTH_HEADING]
         else:
             file_header = f.readline().strip().split('\t')
 
-
         if self._update_header:
             self._header.extend(file_header)
-
-        
 
         # self._header.append(headings.REFSEQ_ID)
         # self._header.append(headings.ENTREZ_ID)
@@ -1183,7 +1171,7 @@ class AnnotatePeak:
             locations.append(location)
 
             # supply already calculated items to each module
-            row_map = {LOCATION_HEADING:location, 'type':self._type}
+            row_map = {LOCATION_HEADING: location, 'type': self._type}
 
             #start = int(tokens[1])
             #end = int(tokens[2])
@@ -1210,12 +1198,26 @@ class AnnotatePeak:
                 row_map[WIDTH_HEADING] = width
                 row_map["Total Score"] = score
                 row_map["Max Score"] = max_score
+            elif 'overlap' in file:
+                score = float(tokens[2])
+                max_score = float(tokens[3])
+                overlaps = float(tokens[4])
+                p1 = tokens[5]
+                p2 = tokens[6]
+                annotation = [str(location), width, score,
+                              max_score, overlaps, p1, p2]
+                row_map[WIDTH_HEADING] = width
+                row_map["Total Score"] = score
+                row_map["Max Score"] = max_score
+                row_map["Overlaps"] = overlaps
+                row_map["P1"] = p1
+                row_map["P2"] = p2
             elif 'bed' in file:
                 annotation = [str(location), width]
                 row_map[WIDTH_HEADING] = width
             else:
                 annotation = tokens[0:len(file_header), width]
-                #annotation.append(location)
+                # annotation.append(location)
 
                 # Use the columns as they are in the file
                 for i in range(0, len(file_header)):
@@ -1246,7 +1248,7 @@ class AnnotatePeak:
 
         # prevent subsequent files for changing headers
         self._update_header = False
-        
+
         self.write_metadata()
 
         #df.to_csv('test.tsv', sep='\t', header=True, index=False)
@@ -1456,6 +1458,3 @@ class AnnotatePeak:
 
         # Finish the annotation
         return row
-
-
-
