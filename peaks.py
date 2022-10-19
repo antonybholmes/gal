@@ -64,304 +64,7 @@ def parse_peaks(file):
     return peaks
 
 
-def overlap(ref_file, query_file):
-    peaks = parse_peaks(ref_file)
 
-    f = open(query_file, 'r')
-
-    # skip header
-    # f.readline()
-
-    lines = []
-
-    for line in f:
-        tokens = line.split('\t')
-
-        chr = tokens[0]
-        start = int(tokens[1])
-        end = int(tokens[2])
-
-        features = peak_overlap(peaks, chr, start, end)
-
-        lines.append('\t'.join(
-            [f'{chr}:{start}-{end}', str(len(features)), ';'.join(features)]))
-
-    f.close()
-
-    return lines
-
-
-def peak_overlap(peaks, chr, start, end):
-    features = []
-
-    for id in sorted(peaks[chr]):
-        p_start = int(peaks[chr][id][0])
-        p_end = int(peaks[chr][id][1])
-
-        if start >= p_start and end <= p_end:
-            features.append(';'.join([id, 'within']))
-        elif start < p_start and end > p_end:
-            features.append(';'.join([id, 'over']))
-        elif start < p_start and end > p_start:
-            features.append(';'.join([id, 'upstream']))
-        elif start < p_end and end > p_end:
-            features.append(';'.join([id, 'downstream']))
-
-    return features
-
-
-def overlapping_peaks(files: list[str], ids: list[str]):
-    """
-    Takes a list of file and finds the common (if any) overlapping regions
-    """
-
-    location_id_map = collections.defaultdict(str)
-    location_map = collections.defaultdict(int)
-    location_bins = collections.defaultdict(set)
-    locations = []
-
-    for filei, file in enumerate(files):
-        id = ids[filei]
-
-        f = open(file, 'r')
-
-        # Skip header
-        if 'Peaks' in file:
-            f.readline()
-
-        for line in f:
-            tokens = line.strip().split('\t')
-
-            if genomic.is_location(tokens[0]):
-                location = genomic.parse_location(tokens[0])
-            else:
-                if genomic.is_chr(tokens[0]):
-                    location = genomic.Location(
-                        tokens[0], int(tokens[1]), int(tokens[2]))
-                else:
-                    print(f'Invalid line: {line}', file=sys.stderr)
-                    continue
-
-            lid = f'{id}={str(location)}'
-
-            #sys.stderr.write('lid ' + lid + '\n')
-
-            locations.append(lid)
-
-            location_id_map[lid] = id
-
-            location_map[lid] = location
-
-            bin_start = int(location.start / BIN_SIZE)
-            bin_end = int(location.end / BIN_SIZE)
-
-            for bin in range(bin_start, bin_end + 1):
-                location_bins[bin].add(lid)
-
-        f.close()
-
-    return overlapping(ids, location_id_map, location_map, location_bins, locations)
-
-
-def overlapping_peak_tables(files, ids):
-    """
-    Takes a list of file and finds the common (if any) overlapping regions
-    """
-
-    location_id_map = collections.defaultdict(str)
-    location_map = collections.defaultdict(int)
-    location_bins = collections.defaultdict(set)
-    locations = []
-
-    for i in range(0, len(files)):
-        file = files[i]
-        id = ids[i]
-
-        f = open(file, 'r')
-
-        f.readline()
-
-        for line in f:
-            ls = line.strip()
-
-            if len(ls) == 0:
-                continue
-
-            tokens = line.split('\t')
-
-            location = genomic.parse_location(tokens[0])
-
-            lid = f'{id}={location.chr}:{location.start}-{location.end}'
-
-            locations.append(lid)
-
-            #sys.stderr.write(id + '\n')
-            location_id_map[lid] = id
-
-            location_map[lid] = location
-
-            bin_start = int(location.start / BIN_SIZE)
-            bin_end = int(location.end / BIN_SIZE)
-
-            for bin in range(bin_start, bin_end + 1):
-                location_bins[bin].add(lid)
-
-        f.close()
-
-    return overlapping(ids, location_id_map, location_map, location_bins, locations)
-
-
-def overlapping(ids, location_id_map: dict[str, str], location_map: dict[str, genomic.Location], location_bins: dict[int, list[str]], locations: list[str]):
-    """
-    Calculates the maximum overlaps between a set of sample locations
-    """
-
-    # lets see what overlaps
-
-    location_core_map = collections.defaultdict(
-        lambda: collections.defaultdict(str))
-
-    # debug for testing to end remove as it truncates list
-    #locations = locations[1:(len(locations) / 4)]
-
-    total = len(locations)
-
-    total *= total
-
-    print(f'Processing {len(locations)}...', file=sys.stderr)
-
-    p = 1
-
-    # keep track of all locations that have been allocated at least once
-    allocated = set()
-
-    for location1 in locations:
-        # of the form id=chrN:start-end, an lid
-
-        # get its location
-        loc1 = location_map[location1]
-        #group1 = location_group_map[location1]
-
-        # if group1 != 'none':
-        #  continue
-
-        # find possible overlapping locations
-
-        test_locations = set()
-
-        bin_start = int(loc1.start / BIN_SIZE)
-        bin_end = int(loc1.end / BIN_SIZE)
-
-        for bin in range(bin_start, bin_end + 1):
-            for location in location_bins[bin]:
-                test_locations.add(location)
-
-        used = set()
-
-        # Form the largest group of overlapping peaks
-        exhausted = False
-
-        while not exhausted:
-            grouped_locations = [location1]
-
-            # reset for each group search
-            loc1 = location_map[location1]
-
-            for location2 in test_locations:
-                if location1 == location2:
-                    continue
-
-                if location2 in used:
-                    continue
-
-                #sys.stderr.write(location1 + ' ' + location2 + '\n')
-
-                loc2 = location_map[location2]
-                #group2 = location_group_map[location2]
-
-                if p % 10000000 == 0:
-                    print(f'p ({p})', file=sys.stderr)
-
-                p += 1
-
-                # if group2 != 'none':
-                #  continue
-
-                if loc1.chr != loc2.chr:
-                    continue
-
-                # Given the two locations we are testing, sort them so
-                # the starts and ends are in order.
-                if (loc1.start <= loc2.start):
-                    min_loc = loc1
-                    max_loc = loc2
-                else:
-                    min_loc = loc2
-                    max_loc = loc1
-
-                overlap = -1
-                overlap_start = -1
-
-                if max_loc.start == min_loc.start and max_loc.end > min_loc.end:
-                    # Peak 1 and 2 start at the same point but peak 2 is wider
-                    # so the overlap region is peak 1
-                    overlap = min_loc.end - min_loc.start + 1
-                    overlap_start = min_loc.start
-                elif max_loc.start >= min_loc.start and max_loc.end <= min_loc.end:
-                    # Peak 1 is wider than peak 2 and contains it
-                    # so the overlap region is peak 2
-                    overlap = max_loc.end - max_loc.start + 1
-                    overlap_start = max_loc.start
-                elif min_loc.start < max_loc.start and min_loc.end > max_loc.start:
-                    # Peak 1 starts before peak 2 but ends within peak 2
-                    # so the overlap is the start of peak 2 to the end of
-                    # peak 1
-                    overlap = min_loc.end - max_loc.start + 1
-                    overlap_start = max_loc.start
-                else:
-                    pass
-
-                # We have not found an overlap yet so continue
-                if overlap == -1:
-                    continue
-
-                # change the start1 and end1 coordinates to reflect the overlap
-                # region so that each subsequent match must be within this region
-                # this prevents long peaks that overlap two smaller peaks who
-                # themselves do not overlap each other
-                loc1 = genomic.Location(
-                    loc1.chr, overlap_start, overlap_start + overlap - 1)
-
-                grouped_locations.append(location2)
-
-            # now we have a list of all locations that overlap each other
-
-            # if we have a group of entries, merge them, otherwise if the
-            # location is by itself, only add it if it has not been allocated
-            # to another group. This prevents duplicate entries of the whole
-            # region by itself plus any overlapping regions
-            if len(grouped_locations) > 1 or location1 not in allocated:
-                overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
-
-                for location in grouped_locations:
-                    # id is a sample id
-                    id = location_id_map[location]
-
-                    #sys.stderr.write('overlap ' + overlap_location + ' ' + id + ' ' + location + '\n')
-
-                    # .add(location)
-                    location_core_map[overlap_location][id] = location
-
-                    used.add(location)
-                    allocated.add(location)
-
-            if len(grouped_locations) == 1:
-                # no more to add so quit looping
-                exhausted = True
-
-    # after iterating over everything, group locations by group
-
-    return location_core_map
 
 
 def duplicate_peaks(type, file):
@@ -379,11 +82,11 @@ def duplicate_peaks(type, file):
         header, 'Relative To Gene')
     tss_column = text.find_index(header, 'TSS Distance')
 
-    mir_column = text.find_index(header, 'miR Symbol')
-    mir_type_column = text.find_index(
-        header, 'Relative To miR')
-    mss_column = text.find_index(
-        header, 'miR Start Distance')
+    #mir_column = text.find_index(header, 'miR Symbol')
+    #mir_type_column = text.find_index(
+    #    header, 'Relative To miR')
+    #mss_column = text.find_index(
+    #    header, 'miR Start Distance')
 
     print('\t'.join(header))
 
@@ -423,8 +126,8 @@ def duplicate_peaks(type, file):
             new_tokens[symbol_column] = symbol
             new_tokens[tss_column] = tss
 
-            new_tokens[mir_column] = text.NA
-            new_tokens[mir_type_column] = text.NA
+            #new_tokens[mir_column] = text.NA
+            #new_tokens[mir_type_column] = text.NA
 
             print('\t'.join(new_tokens))
 
@@ -432,35 +135,35 @@ def duplicate_peaks(type, file):
 
         # Only process the mirs if they exist
 
-        if mir_column != -1:
-            mirs = tokens[mir_column].split(';')
-            mir_types = tokens[mir_type_column].split(';')
-            mir_mss = tokens[mss_column].split(';')
+        # if mir_column != -1:
+        #     mirs = tokens[mir_column].split(';')
+        #     mir_types = tokens[mir_type_column].split(';')
+        #     mir_mss = tokens[mss_column].split(';')
 
-            for i in range(0, len(mirs)):
-                mir = mirs[i]
+        #     for i in range(0, len(mirs)):
+        #         mir = mirs[i]
 
-                if mir == text.NA:
-                    continue
+        #         if mir == text.NA:
+        #             continue
 
-                mir_type = mir_types[i]
-                mss = mir_mss[i]
+        #         mir_type = mir_types[i]
+        #         mss = mir_mss[i]
 
-                new_tokens = tokens[:]
+        #         new_tokens = tokens[:]
 
-                new_tokens[overlap_type_column] = text.NA
-                new_tokens[entrez_column] = text.NA
-                new_tokens[refseq_column] = text.NA
-                new_tokens[symbol_column] = text.NA
-                new_tokens[tss_column] = text.NA
+        #         new_tokens[overlap_type_column] = text.NA
+        #         new_tokens[entrez_column] = text.NA
+        #         new_tokens[refseq_column] = text.NA
+        #         new_tokens[symbol_column] = text.NA
+        #         new_tokens[tss_column] = text.NA
 
-                new_tokens[mir_column] = mir
-                new_tokens[mir_type_column] = mir_type
-                new_tokens[mss_column] = mss
+        #         new_tokens[mir_column] = mir
+        #         new_tokens[mir_type_column] = mir_type
+        #         new_tokens[mss_column] = mss
 
-                print('\t'.join(new_tokens))
+        #         print('\t'.join(new_tokens))
 
-                split = True
+        #         split = True
 
         if split == False:
             # no lines were split so print the row as it was originally

@@ -3,6 +3,7 @@ import sys
 import collections
 import re
 import os.path
+from typing import Union
 
 from . import annotation
 from . import text
@@ -53,7 +54,7 @@ def load_classification(file, genes_map):
     if not os.path.exists(file):
         return
 
-    sys.stderr.write("Opening classification file " + file + "...\n")
+    print(f"Opening classification file {file}", file=sys.stderr)
 
     f = open(file, "r")
 
@@ -186,17 +187,21 @@ class GeneExpression:
 
     def __init__(self, dir):
         self.dir = dir
-        self.file = dir + "classification.txt"
+        self.file = os.path.join(dir, "classification.txt")
         self.expression_map = collections.defaultdict(str)
         load_classification(self.file, self.expression_map)
 
-    def get_expression(self, id):
-        s = id.lower()
+    def get_expression(self, ids:Union[str, list[str]]):
+        if isinstance(ids, str):
+            ids = [ids]
 
-        if s in self.expression_map:
-            return self.expression_map[s]
-        else:
-            return "n/a"
+        for id in ids:
+            s = id.lower()
+
+            if s in self.expression_map:
+                return self.expression_map[s]
+        
+        return text.NA
 
     def get_file(self):
         return self.dir

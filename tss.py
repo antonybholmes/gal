@@ -522,6 +522,8 @@ class RefSeqTss(genomic.Annotation):
         ps = 0
         pe = len(self._starts[location.chr]) - 1
 
+        #print(location, file=sys.stderr)
+        
         if mid_point < self._starts[location.chr][ps]:
             return self.get_annotation(location.chr, mid_point, self._starts[location.chr][ps])
 

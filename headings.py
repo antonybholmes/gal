@@ -27,7 +27,7 @@ SCORE = 'Score'
 TSS_DISTANCE = 'TSS Distance'
 RELATIVE = 'Relative To Gene'
 OVERLAPPING = 'Number Of Overlapping'
-CENTROMERE = 'Centromere Telomere'
+CENTROMERE = 'Centromere/Telomere'
 
 
 CLOSEST_ENTREZ_ID = 'Closest Entrez ID'
