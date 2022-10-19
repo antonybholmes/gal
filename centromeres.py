@@ -13,7 +13,7 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 Copyright (C) 2022 Antony Holmes.
 """
 
-from typing import Any, Mapping, Union
+from typing import Mapping, Union
 from . import genomic
 from . import text
 
@@ -31,7 +31,7 @@ class Centromeres(genomic.ClassifyRegion):
         overlap = self._overlaps.get_max_overlap(location)
 
         if overlap is not None:
-            p = overlap.length / location.length
+            #p = overlap.length / location.length
             return self._classification
         else:
             return text.NA

@@ -726,7 +726,7 @@ class Annotation(ABC):
         Returns:
             list[Any]: list of columns.
         """
-        ...  # self.annotate(location)
+        ...
 
     @property
     def metadata(self) -> dict[str, Any]:

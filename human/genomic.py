@@ -18,7 +18,7 @@ from ... import text
 from ... import genomic
 
 PATH = __path__
-REFSEQ_FILE = f"{__path__}/assets/human/grch38/ucsc_refseq_exons_entrez_grch38.v20220921.tsv"
+REFSEQ_FILE = f"{PATH}/assets/human/grch38/ucsc_refseq_exons_entrez_grch38.v20220921.tsv"
 TAD_FILE = f"{PATH}/assets/human/tads.gencode.v38lift37.genes.approved.tsv"
 TANDEM_REPEATS_FILE = f"{PATH}/assets/human/grch38/simple_tandem_repeats.bed"
 CHROM_SIZE_FILE = f"{PATH}/assets/human/grch38/chrom.sizes.txt"

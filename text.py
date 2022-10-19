@@ -37,7 +37,7 @@ def find_index(tokens: List[str], text: str, offset: int = 0):
         return -1
 
 
-def find_indices(tokens: List[str], text: str, offset: int = 0) -> int:
+def find_indices(tokens: List[str], text: str) -> int:
     """
     Find all the headings in list that matches some text.
     """

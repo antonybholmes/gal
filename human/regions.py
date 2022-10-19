@@ -15,7 +15,6 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 Copyright (C) 2022 Antony Holmes.
 """
 
-import re
 from .. import text
 from .. import headings
 from .. import regions
