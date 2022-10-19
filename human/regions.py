@@ -16,14 +16,12 @@ Copyright (C) 2022 Antony Holmes.
 """
 
 import re
-
-from . import peaks
 from .. import text
 from .. import headings
 from .. import regions
 from .. import genes
   
-class GeneOrientatedRegionIntersections(peaks.GeneOrientatedPeaks):
+class GeneOrientatedRegionIntersections(genes.GeneOrientatedPeaks):
   """
   Annotate genes that are part of intersections only.
   """
@@ -121,7 +119,7 @@ class GeneOrientatedRegionIntersections(peaks.GeneOrientatedPeaks):
     f.close()
     
 
-class ClosestGeneOrientatedRegionIntersections(peaks.GeneOrientatedPeaks):
+class ClosestGeneOrientatedRegionIntersections(genes.GeneOrientatedPeaks):
   def __init__(self):
     super().__init__("Region")
     
@@ -238,7 +236,7 @@ class ClosestGeneOrientatedRegionIntersections(peaks.GeneOrientatedPeaks):
     f.close()
     
 
-class GeneOrientatedRegionCores(peaks.GeneOrientatedPeaks):
+class GeneOrientatedRegionCores(genes.GeneOrientatedPeaks):
   """
   For annotating peaks that lie within any of the three way intersections
   """

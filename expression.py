@@ -191,7 +191,21 @@ class GeneExpression:
         self.expression_map = collections.defaultdict(str)
         load_classification(self.file, self.expression_map)
 
-    def get_expression(self, ids:Union[str, list[str]]):
+    def get_expression(self, ids:Union[str, list[str]]) -> str:
+        """
+        Get the expression for a gene based on name only, so the
+        expression table needs to use ids that match those you
+        are trying to annotate.
+
+        Args:
+            ids (Union[str, list[str]]): Gets the expression level for a gene.
+            You can supply either a string or a list of strings representing
+            multiple gene annotations, e.g. a symbol and a RefSeq Id to have
+            the best chance of matching to the expression table.
+
+        Returns:
+            str: The expression of the gene or n/a if the gene is not found.
+        """        
         if isinstance(ids, str):
             ids = [ids]
 

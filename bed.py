@@ -9,7 +9,7 @@ import sys
 import collections
 import re
 
-import pychipseq.sample
+import gal.sample
 
 
 def create_bed_header(name, color="255,0,0"):
@@ -25,7 +25,7 @@ def create_bed_header(name, color="255,0,0"):
 
 def create_bedgraph_header(name, color="255,0,0"):
   # Need to truncate the name to 16 chars
-  short_name = pychipseq.sample.get_sample_id(name)
+  short_name = gal.sample.get_sample_id(name)
   
   return "track type=bedGraph name=\"" + short_name  + "\" description=\"" + name + " peaks\" visibility=full autoScale=on alwaysZero=on color=\"" + color + "\""
 
@@ -69,7 +69,7 @@ def load_bed_peaks(file):
     start = int(tokens[1]) + 1
     end = int(tokens[2])
     
-    location = tokens[0] + ":" + str(start) + "-" + str(end)
+    location = chr + ":" + str(start) + "-" + str(end)
     
     rpm = float(tokens[3])
     

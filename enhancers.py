@@ -84,7 +84,7 @@ def get_overlaps(files, ids):
   
   total *= total
   
-  sys.stderr.write("Processing " + str(len(locations)) + " " + str(total) + " locations\n");
+  print("Processing", str(len(locations)), str(total), "locations", file=sys.stderr);
 
   p = 0
   
