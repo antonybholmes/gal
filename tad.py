@@ -159,7 +159,8 @@ class TADAnnotationFactory:
 
 class IsTADAnnotation(genomic.Annotation):
     """
-    Annotate whether gene peak is in is listed in gene TAD domains. Mostly for Laura's benefit.
+    Annotate whether the gene of a peak is listed in TAD domains the peak belongs to. 
+    Mostly for Laura's benefit.
     """
 
     def __init__(self):
@@ -187,7 +188,7 @@ class IsTADAnnotation(genomic.Annotation):
 
 class IsClosestTADAnnotation(genomic.Annotation):
     """
-    Annotate peaks for all possible refseq genes they might overlap.
+    Annotate if the closest gene to a peak is in the TAD domain of this peak.
     """
 
     def __init__(self):

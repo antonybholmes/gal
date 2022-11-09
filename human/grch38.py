@@ -12,17 +12,15 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 
 Copyright (C) 2022 Antony Holmes.
 """
-
-from typing import Any, Mapping, Union
 from .. import genes
 from .. import mir
-from .. import text
 from .. import genomic
 from .. import centromeres
 from .. import peaks
 from .. import tss
 from .. import core
 from .. import db
+from .. import tad
 import os
 
 REFSEQ_FILE = os.path.join(
@@ -30,7 +28,7 @@ REFSEQ_FILE = os.path.join(
 MIR_BED_FILE = os.path.join(
     core.PATH, "assets/human/grch38/mirbase/v22/mir.bed")
 TAD_FILE = os.path.join(
-    core.PATH, "assets/human/tads.gencode.v38lift37.genes.approved.tsv")
+    core.PATH, "assets/human/grch38/gcb_tads_approved_20221109.tsv")
 TANDEM_REPEATS_FILE = os.path.join(
     core.PATH, "assets/human/grch38/simple_tandem_repeats.bed")
 CHROM_SIZE_FILE = os.path.join(
@@ -124,6 +122,14 @@ class HumanOverlapTss(tss.OverlapTss):
     def __init__(self, block_size=100):
         super().__init__(REFSEQ_FILE, block_size)
 
+class GencodeTADAnnotation(tad.TADAnnotation):
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super().__new__(cls)
+        return cls.instance
+
+    def __init__(self, bin_size=100):
+        super().__init__(TAD_FILE, bin_size=bin_size)
 
 # class Nnnn(genomic.Annotation):
 #     """
@@ -190,7 +196,7 @@ class AnnotatePeak(peaks.AnnotatePeak):
         self.add_module(HumanSimpleTandemRepeats())
         # self.add_module(hg.EncodeBlacklist())
         # self.add_module(hg.GiuliaBlacklist())
-        # self.add_module(ht.GencodeTADAnnotation())
-        # self.add_module(tad.IsTADAnnotation())
-        # self.add_module(tad.IsClosestTADAnnotation())
+        self.add_module(GencodeTADAnnotation())
+        self.add_module(tad.IsTADAnnotation())
+        self.add_module(tad.IsClosestTADAnnotation())
         self.add_module(HumanOverlapTss())

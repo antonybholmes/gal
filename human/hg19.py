@@ -31,7 +31,7 @@ REFSEQ_FILE = os.path.join(
 MIR_BED_FILE = os.path.join(
     core.PATH, "assets/human/hg19/mirbase/v22/mir.bed")
 TAD_FILE = os.path.join(
-    core.PATH, "assets/human/tads.gencode.v38lift37.genes.approved.tsv")
+    core.PATH, "assets/human/hg19/gcb_tads.gencode.v38lift37.genes.approved.tsv")
 TANDEM_REPEATS_FILE = os.path.join(
     core.PATH, "assets/human/hg19/simple_tandem_repeats.bed")
 CHROM_SIZE_FILE = os.path.join(

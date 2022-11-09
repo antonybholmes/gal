@@ -13,7 +13,6 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 Copyright (C) 2022 Antony Holmes.
 """
 
-from typing import List
 import numpy as np
 
 NA = "n/a"
@@ -24,12 +23,12 @@ def get_header(f):
     return f.readline().strip().split("\t")
 
 
-def find_index(tokens: List[str], text: str, offset: int = 0):
+def find_index(tokens: list[str], text: str, offset: int = 0):
     """
     Find the first heading in list that matches some text.
     """
 
-    idx = find_indices(tokens, text, offset)
+    idx = find_indices(tokens, text) #, offset)
 
     if idx.size > 0:
         return idx[0]
@@ -37,7 +36,7 @@ def find_index(tokens: List[str], text: str, offset: int = 0):
         return -1
 
 
-def find_indices(tokens: List[str], text: str) -> int:
+def find_indices(tokens: list[str], text: str) -> int:
     """
     Find all the headings in list that matches some text.
     """
