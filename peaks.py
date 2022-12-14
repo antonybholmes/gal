@@ -64,9 +64,6 @@ def parse_peaks(file):
     return peaks
 
 
-
-
-
 def duplicate_peaks(type, file):
     f = open(file, 'r')
 
@@ -83,9 +80,9 @@ def duplicate_peaks(type, file):
     tss_column = text.find_index(header, 'TSS Distance')
 
     #mir_column = text.find_index(header, 'miR Symbol')
-    #mir_type_column = text.find_index(
+    # mir_type_column = text.find_index(
     #    header, 'Relative To miR')
-    #mss_column = text.find_index(
+    # mss_column = text.find_index(
     #    header, 'miR Start Distance')
 
     print('\t'.join(header))
@@ -581,7 +578,6 @@ class PeaksPerGeneAnnotation(TableAnnotation):
     def annotate(self, header: list[str], df: pd.DataFrame) -> pd.DataFrame:
         header = np.array(header)
 
-        print(header, file=sys.stderr)
         loc_col = text.find_index(header, LOCATION_HEADING)
         # np.where(header == headings.GENE_SYMBOL)[0][0]
         gene_col = text.find_index(header, headings.GENE_SYMBOL)
@@ -792,6 +788,9 @@ class AnnotatePeak:
                            WIDTH_HEADING, "Total Score", "Max Score"]
         elif 'narrowPeak' in file:
             file_header = [LOCATION_HEADING, WIDTH_HEADING, "Total Score"]
+        elif 'overlap_sum' in file:
+            file_header = [LOCATION_HEADING,
+                           WIDTH_HEADING, "Total Score", "Max Score", "Overlapping Bases", "% Bases Overlap"]
         elif 'overlap' in file:
             file_header = [LOCATION_HEADING,
                            WIDTH_HEADING, "Total Score", "Max Score", "Number Of Overlapping Peaks", "P1", "P2"]
@@ -910,6 +909,18 @@ class AnnotatePeak:
                 annotation = [str(location), width, score]
                 row_map[WIDTH_HEADING] = width
                 row_map["Total Score"] = score
+            elif 'overlap_sum' in file:
+                score = float(tokens[2])
+                max_score = float(tokens[3])
+                overlaps = int(tokens[-2])
+                pc_overlap = float(tokens[-1])
+                annotation = [str(location), width, score,
+                              max_score, overlaps, pc_overlap]
+                row_map[WIDTH_HEADING] = width
+                row_map["Total Score"] = score
+                row_map["Max Score"] = max_score
+                row_map["Overlapping Bases"] = overlaps
+                row_map["% Bases Overlap"] = pc_overlap
             elif 'overlap' in file:
                 score = float(tokens[2])
                 max_score = float(tokens[3])

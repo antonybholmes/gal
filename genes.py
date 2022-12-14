@@ -237,7 +237,7 @@ class GeneOrientatedPeaks:
         """
 
         self.type = type
-        self.all_gene_mode = all_gene_mode
+        self._all_gene_mode = all_gene_mode
         self.expression_list:list[expression.GeneExpression] = []
         self.expression_list_headers:list[str] = []
 
@@ -308,6 +308,9 @@ class GeneOrientatedPeaks:
         self.collapsed_tss = collections.defaultdict(list)
         self.collapsed_types = collections.defaultdict(list)
         self.collapsed_centromeres = collections.defaultdict(list)
+        self.collapsed_scores = collections.defaultdict(lambda: collections.defaultdict(list))
+        self._max_score_n = 0
+        self._total_score_n = 0
 
         self.mirs = set()
         self.refseqs = set()
@@ -345,8 +348,10 @@ class GeneOrientatedPeaks:
         symbol_column = text.find_index(
             header, headings.GENE_SYMBOL)
         type_column = text.find_index(header, 'Relative To Gene')
+        
         #p_column = text.find_index(header, headings.P_VALUE)
         #score_column = text.find_index(header, headings.SCORE)
+
         tss_column = text.find_index(
             header, headings.TSS_DISTANCE)
         centromere_column = text.find_index(
@@ -364,9 +369,13 @@ class GeneOrientatedPeaks:
         closest_tss_column = text.find_index(
             header, headings.CLOSEST_TSS_DISTANCE)
 
+        total_score_column = text.find_index(
+            header, "Total Score")
 
-        mir_column = text.find_index(
-            header, headings.MIR_SYMBOL)
+        max_score_column = text.find_index(
+            header, "Max Score")
+
+        mir_column = text.find_index(header, headings.MIR_SYMBOL)
         mir_type_column = text.find_index(header, 'Relative To miR')
         mss_column = text.find_index(header, 'mIR Start Distance')
 
@@ -392,6 +401,9 @@ class GeneOrientatedPeaks:
             type = tokens[type_column]
             centromere = tokens[centromere_column]
 
+            total_score = float(tokens[total_score_column]) if total_score_column != -1 else -1
+            max_score = float(tokens[max_score_column]) if max_score_column != -1 else -1
+
             for i in range(0, len(refseqs)):
                 # The core id identifies the unique genes on a peak, rather than
                 #
@@ -411,7 +423,14 @@ class GeneOrientatedPeaks:
                     self.collapsed_types[refseq].append(type)
                     self.collapsed_centromeres[refseq].append(centromere)
 
-            if self.all_gene_mode and tokens[refseq_column] == text.NA:
+                    # for all peaks we find keep track of every score
+                    if max_score != "":
+                        self.collapsed_scores[refseq]['max_score'].append(max_score)
+                        
+                    if total_score != "":
+                        self.collapsed_scores[refseq]['total_score'].append(total_score)
+
+            if self._all_gene_mode and tokens[refseq_column] == text.NA:
                 entrezes = tokens[closest_entrez_column].split(';')
                 symbols = tokens[closest_symbol_column].split(';')
                 refseqs = tokens[closest_refseq_column].split(';')
@@ -436,6 +455,12 @@ class GeneOrientatedPeaks:
                         self.collapsed_tss[refseq].append(tss)
                         self.collapsed_types[refseq].append(type)
                         self.collapsed_centromeres[refseq].append(centromere)
+                        
+                        if max_score != "":
+                            self.collapsed_scores[refseq]['max_score'].append(max_score)
+
+                        if total_score != "":
+                            self.collapsed_scores[refseq]['total_score'].append(total_score)
 
             # mir = tokens[mir_column]
 
@@ -490,8 +515,30 @@ class GeneOrientatedPeaks:
         #ret.append('Best Score (ChIPseeqer)')
         ret.append(f'{self.type} Count')
         ret.append(f'{self.type} Genomic Locations')
+        
+
+        ret.append(f'Highest Total x Max Score')
+        ret.append(f'Highest Total Score')
+        ret.append(f'Highest Max Score')
+
+        self._total_score_n = 0
+
+        for refseq in self.collapsed_scores:
+            self._total_score_n = max(self._total_score_n, len(self.collapsed_scores[refseq]['total_score']))
+
+        if self._total_score_n > 0:
+            ret.extend([f'Total Score {i + 1}' for i in range(0, self._total_score_n)])
+
+        self._max_score_n = 0
+
+        for refseq in self.collapsed_scores:
+            self._max_score_n = max(self._max_score_n, len(self.collapsed_scores[refseq]['max_score']))
+
+        if self._max_score_n > 0:
+            ret.extend([f'Max Score {i + 1}' for i in range(0, self._max_score_n)])
 
         return ret
+
 
     def get_ids(self):
         return sorted(self.refseqs)
@@ -556,6 +603,36 @@ class GeneOrientatedPeaks:
         ret.append(len(self.collapsed_locations[id]))
 
         ret.append(';'.join(self.collapsed_locations[id]))
+
+        highest_total_max = -1
+        highest_total = -1
+        highest_max = -1
+
+        if len(self.collapsed_scores[id]['total_score']) > 0:
+            for i in range(len(self.collapsed_scores[id]['total_score'])):
+                s = self.collapsed_scores[id]['total_score'][i] * self.collapsed_scores[id]['max_score'][i]
+
+                print(id, s, file=sys.stderr)
+
+                if s > highest_total_max:
+                    highest_total_max = s
+                    highest_total = self.collapsed_scores[id]['total_score'][i]
+                    highest_max = self.collapsed_scores[id]['max_score'][i]
+
+        ret.append(str(highest_total_max))
+        ret.append(str(highest_total))
+        ret.append(str(highest_max))
+
+        # only add scores to table if there are 
+        if len(self.collapsed_scores[id]['total_score']) > 0:
+            d = [text.NA] * self._total_score_n
+            d[0:len(self.collapsed_scores[id]['total_score'])] = [str(x) for x in self.collapsed_scores[id]['total_score']]
+            ret.extend(d)
+
+        if len(self.collapsed_scores[id]['max_score']) > 0:
+            d = [text.NA] * self._max_score_n
+            d[0:len(self.collapsed_scores[id]['max_score'])] = [str(x) for x in self.collapsed_scores[id]['max_score']]
+            ret.extend(d)
 
         print('\t'.join([str(x) for x in ret]))
 
