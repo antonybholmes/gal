@@ -15,6 +15,7 @@ Copyright (C) 2022 Antony Holmes.
 
 from typing import Mapping, Union
 from . import genomic
+from . import bed
 from . import text
 
 
@@ -23,7 +24,7 @@ class Centromeres(genomic.ClassifyRegion):
     Determine whether a location overlaps a centromere
     """
 
-    def __init__(self, centromeres: genomic.SearchGenomicBedFeatures, classification: str = "centromeric"):
+    def __init__(self, centromeres: bed.SearchGenomicBedFeatures, classification: str = "centromeric"):
         self._overlaps = genomic.GenomicFeaturesOverlap(centromeres)
         self._classification = classification
 
@@ -38,7 +39,7 @@ class Centromeres(genomic.ClassifyRegion):
 
 
 class Telomeres(Centromeres):
-    def __init__(self, telomeres: genomic.SearchGenomicBedFeatures):
+    def __init__(self, telomeres: bed.SearchGenomicBedFeatures):
         super().__init__(telomeres, "telomeric")
 
 
@@ -47,7 +48,7 @@ class Repetitive(genomic.Annotation):
     Determine whether a location overlaps a repetitive region
     """
 
-    def __init__(self, centromeres:genomic.SearchGenomicBedFeatures, telomeres:genomic.SearchGenomicBedFeatures):
+    def __init__(self, centromeres:bed.SearchGenomicBedFeatures, telomeres:bed.SearchGenomicBedFeatures):
         super().__init__('repetitive')
         self._centromeres = Centromeres(centromeres)
         self._telomeres = Telomeres(telomeres)
@@ -74,7 +75,7 @@ class Repetitive(genomic.Annotation):
 
 
 class SimpleTandemRepeats(genomic.Annotation):
-    def __init__(self, trf:genomic.SearchGenomicBedFeatures):
+    def __init__(self, trf:bed.SearchGenomicBedFeatures):
         super().__init__('simple-tandem-repeats')
         self._trf_overlaps = genomic.GenomicFeaturesOverlap(trf)
 

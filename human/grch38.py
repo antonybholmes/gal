@@ -21,6 +21,7 @@ from .. import tss
 from .. import core
 from .. import db
 from .. import tad
+from .. import bed
 import os
 
 REFSEQ_FILE = os.path.join(
@@ -95,8 +96,8 @@ class HumanRepetitive(centromeres.Repetitive):
         return cls.instance
 
     def __init__(self):
-        super().__init__(genomic.SearchGenomicBedFeatures(UCSC_CENTROMERES_FILE),
-                         genomic.SearchGenomicBedFeatures(UCSC_TELOMERES_FILE))
+        super().__init__(bed.SearchGenomicBedFeatures(UCSC_CENTROMERES_FILE),
+                         bed.SearchGenomicBedFeatures(UCSC_TELOMERES_FILE))
 
 
 class HumanSimpleTandemRepeats(centromeres.SimpleTandemRepeats):
@@ -110,7 +111,7 @@ class HumanSimpleTandemRepeats(centromeres.SimpleTandemRepeats):
         return cls.instance
 
     def __init__(self):
-        super().__init__(genomic.SearchGenomicBedFeatures(TANDEM_REPEATS_FILE))
+        super().__init__(bed.SearchGenomicBedFeatures(TANDEM_REPEATS_FILE))
 
 
 class HumanOverlapTss(tss.OverlapTss):

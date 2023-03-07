@@ -117,8 +117,7 @@ class Gene(genomic.Feature):
             start (int): 1 based start location
             end (int): 1 based end location
         """        
-        super().__init__(chr, start, end)
-        self._strand = strand
+        super().__init__(chr, start, end, strand)
         self.add_id(GENE_ID, id)
         self.add_id(GENE_SYMBOL, symbol)
 
@@ -133,10 +132,6 @@ class Gene(genomic.Feature):
     @property
     def name(self) -> str:
         return self.symbol
-
-    @property
-    def strand(self) -> str:
-        return self._strand
 
 
 class RefSeqGene(Gene):
