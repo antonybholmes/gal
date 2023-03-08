@@ -28,7 +28,7 @@ BIN_SIZE = 1000
 
 
 def get_uid(sid: str, loc: genomic.Location) -> str:
-    return f'{sid}={str(loc)}'
+    return f'{sid}={loc}'
 
 
 def parse_uid(uid: str) -> list[str, str]:
@@ -41,25 +41,6 @@ def parse_uid(uid: str) -> list[str, str]:
         list[str, str]: the sample id and location as strings
     """
     return uid.split('=')
-
-# class Uid:
-# 	def __init__(self, sid: str, loc: genomic.Location):
-# 		self._sid = sid
-# 		self._loc = loc
-# 		self._uid = get_uid(sid, loc)
-
-# 	@property
-# 	def sid(self) -> str:
-# 		return self._sid
-
-# 	@property
-# 	def sid(self) -> genomic.Location:
-# 		return self._loc
-
-# 	@property
-# 	def uid(self) -> str:
-# 		return self._uid
-
 
 class Overlap:
     """
@@ -251,8 +232,6 @@ def _min_common_regions(uids: list[str],
         if uid1 in allocated:
             continue
 
-        sid1, _ = parse_uid(uid1)
-
         # get its location
         loc1 = uid_to_loc_map[uid1]
 
@@ -281,6 +260,9 @@ def _min_common_regions(uids: list[str],
 
         # Form the largest group of overlapping peaks
         exhausted = False
+
+        if 'chr10:110153776-110153972' in loc1.__str__():
+            print('ww')
 
         while not exhausted:
             grouped_uids = {uid1}
@@ -316,6 +298,9 @@ def _min_common_regions(uids: list[str],
                 #     overlap = min(min_loc.end, max_loc.end) - overlap_start + 1
 
                 overlap = genomic.overlap_locations(loc1, loc2)
+                
+                if 'chr10:110153776-110153972' in loc1.__str__() or 'chr10:110153776-110153972' in loc2.__str__():
+                    print('overlap', loc1, loc2, overlap)
 
                 if overlap is not None:
                     # change the start1 and end1 coordinates to reflect the overlap
@@ -383,12 +368,20 @@ def _min_common_regions(uids: list[str],
             # allocated and move on
 
             if len(grouped_uids) > 1 or next(iter(grouped_uids)) not in allocated:
+                
+            
                 for uid in grouped_uids:
                     # sid is a sample id
                     sid, _ = parse_uid(uid)  # sample_id_map[uid]
 
                     # if the uid has not been allocated yet
                     location_core_map[overlap_location][sid].add(uid)
+
+                    if 'chr10:110153776-110153972' in uid:
+                        print('allocated 1', uid1, uid)
+
+                    if 'chr10:110153588-110153799' in uid:
+                        print('allocated 2', uid1, uid)
 
                     used.add(uid)
                     allocated.add(uid)
@@ -412,38 +405,49 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
     Returns:
             dict[str, dict[str, str]]: _description_
     """
-
-    location_map = collections.defaultdict(genomic.Location)
-    bin_to_uids_map = collections.defaultdict(
-        lambda: collections.defaultdict(set[str]))
-    uids = []
+    
+    loc_sample_map = collections.defaultdict(list[str])
+    locations = []
 
     for item in fids:
         sid, file = item
 
-        f = open(file, 'r')
+        with open(file, 'r') as f:
 
-        # Skip header
-        if 'Peaks' in file or 'tsv' in file:
-            f.readline()
+            # Skip header
+            if 'Peaks' in file or 'tsv' in file:
+                f.readline()
 
-        for line in f:
-            tokens = line.strip().split('\t')
+            for line in f:
+                tokens = line.strip().split('\t')
 
-            if genomic.is_location(tokens[0]):
-                location = genomic.parse_location(tokens[0])
-            else:
-                if genomic.is_chr(tokens[0]):
-                    location = genomic.Location(
-                        tokens[0], int(tokens[1]), int(tokens[2]))
+                if genomic.is_location(tokens[0]):
+                    location = genomic.parse_location(tokens[0])
                 else:
-                    print(f'Invalid line: {line}', file=sys.stderr)
-                    continue
+                    if genomic.is_chr(tokens[0]):
+                        location = genomic.Location(
+                            tokens[0], int(tokens[1]), int(tokens[2]))
+                        locations.append(location)
+                        loc_sample_map[str(location)].append(sid)
+                    else:
+                        print(f'Invalid line: {line}', file=sys.stderr)
+    
+    # sort all locations
+    locations = genomic.sort_locations(locations)
 
-            uid = get_uid(sid, location)  # f'{sid}={str(location)}'
+    # map sorted locations back to sample and run in genomic location
+    # order
 
-            # sys.stderr.write('lid ' + lid + '\n')
+    uids = []
+    location_map = collections.defaultdict(genomic.Location)
+    bin_to_uids_map = collections.defaultdict(lambda: collections.defaultdict(list[str]))
 
+    for location in locations:
+        sids = loc_sample_map[str(location)]
+
+        for sid in sids:
+            uid = get_uid(sid, location)
+            
             uids.append(uid)
 
             location_map[uid] = location
@@ -452,9 +456,7 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
             bin_end = int(location.end / BIN_SIZE)
 
             for bin in range(bin_start, bin_end + 1):
-                bin_to_uids_map[location.chr][bin].add(uid)
-
-    f.close()
+                bin_to_uids_map[location.chr][bin].append(uid)
 
     location_core_map = core_regions(uids, location_map, bin_to_uids_map)
 
@@ -544,6 +546,8 @@ def create_overlap_table(files: list[str], core_regions=min_common_regions):
             #	max_score = float(tokens[max_score_col])
 
             uid = get_uid(sid, location)
+
+            
 
             for col in ext_cols:
                 ext_data[uid][col] = float(tokens[ext_col_indexes[col]])

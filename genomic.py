@@ -133,7 +133,8 @@ def sort_locations(locations: Iterable[Location]):
     Returns:
         _type_: _description_
     """
-    m = collections.defaultdict(lambda: collections.defaultdict(list))
+
+    m = collections.defaultdict(lambda: collections.defaultdict(list[Location]))
 
     for l in locations:
         m[l.chr][l.start].append(l)
