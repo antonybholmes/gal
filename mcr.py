@@ -270,7 +270,6 @@ def _min_common_regions(uids: list[str],
         while not exhausted:
             grouped_uids = [uid1]
             
-
             # reset for each group search
             loc1 = uid_to_loc_map[uid1]
 
@@ -415,6 +414,7 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
     for item in fids:
         sid, file = item
 
+        
         with open(file, 'r') as f:
 
             # Skip header
@@ -424,16 +424,20 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
             for line in f:
                 tokens = line.strip().split('\t')
 
+                location = None
+
                 if genomic.is_location(tokens[0]):
                     location = genomic.parse_location(tokens[0])
                 else:
                     if genomic.is_chr(tokens[0]):
                         location = genomic.Location(
                             tokens[0], int(tokens[1]), int(tokens[2]))
-                        locations.append(location)
-                        loc_sample_map[str(location)].append(sid)
                     else:
                         print(f'Invalid line: {line}', file=sys.stderr)
+
+                if location is not None:
+                    locations.append(location)
+                    loc_sample_map[str(location)].append(sid)
     
     # sort all locations
     locations = genomic.sort_locations(locations)
@@ -494,77 +498,75 @@ def create_overlap_table(files: list[str], core_regions=min_common_regions):
 
         # now make a list of locations and best p-values
 
-        f = open(file, 'r')
+        with open(file, 'r') as f:
 
-        # total_score_col = -1  # 3
-        # max_score_col = -1  # 4
+            # total_score_col = -1  # 3
+            # max_score_col = -1  # 4
 
-        ext_col_indexes = {}
+            ext_col_indexes = {}
 
-        # Adjust colums to look it for peak files
-        if "seacr" in file and 'tsv' in file:
-            # print(f'what gives', file=sys.stderr)
-            tokens = f.readline().strip().split("\t")
+            # Adjust colums to look it for peak files
+            if "seacr" in file and 'tsv' in file:
+                # print(f'what gives', file=sys.stderr)
+                tokens = f.readline().strip().split("\t")
 
-            # total_score_col = gal.text.find_index(tokens, "Total Score")
-            # max_score_col = gal.text.find_index(tokens, "Max Score")
+                # total_score_col = gal.text.find_index(tokens, "Total Score")
+                # max_score_col = gal.text.find_index(tokens, "Max Score")
 
-            ext_cols = ["Total Score", "Max Score"]
-            ext_col_indexes['Total Score'] = text.find_index(
-                tokens, "Total Score")
-            ext_col_indexes['Max Score'] = text.find_index(
-                tokens, "Max Score")
-        elif ("narrowPeak" in file or "broadPeak" in file) and not file.endswith('bed'):
-            ext_cols = ["fold_change", "-log10pvalue", "-log10qvalue"]
-            ext_col_indexes['fold_change'] = 6
-            ext_col_indexes["-log10pvalue"] = 7
-            ext_col_indexes["-log10qvalue"] = 8
-        elif file.endswith('bed'):
-            pass
-        else:
-            # assume table so skip first line
-            f.readline()
-
-        for line in f:
-            tokens = line.strip().split("\t")
-
-            if genomic.is_location(tokens[0]):
-                location = genomic.parse_location(tokens[0])
+                ext_cols = ["Total Score", "Max Score"]
+                ext_col_indexes['Total Score'] = text.find_index(
+                    tokens, "Total Score")
+                ext_col_indexes['Max Score'] = text.find_index(
+                    tokens, "Max Score")
+            elif ("narrowPeak" in file or "broadPeak" in file) and not file.endswith('bed'):
+                ext_cols = ["fold_change", "-log10pvalue", "-log10qvalue"]
+                ext_col_indexes['fold_change'] = 6
+                ext_col_indexes["-log10pvalue"] = 7
+                ext_col_indexes["-log10qvalue"] = 8
+            elif file.endswith('bed'):
+                pass
             else:
-                if genomic.is_chr(tokens[0]):
-                    location = genomic.Location(
-                        tokens[0], int(tokens[1]), int(tokens[2]))
+                # assume table so skip first line
+                f.readline()
+
+            for line in f:
+                tokens = line.strip().split("\t")
+
+                if genomic.is_location(tokens[0]):
+                    location = genomic.parse_location(tokens[0])
                 else:
-                    print(f'Invalid line: {line}', file=sys.stderr)
+                    if genomic.is_chr(tokens[0]):
+                        location = genomic.Location(
+                            tokens[0], int(tokens[1]), int(tokens[2]))
+                    else:
+                        print(f'Invalid line: {line}', file=sys.stderr)
 
-                    continue
+                        continue
 
-            # total_score = 0
-            # max_score = 0
+                # total_score = 0
+                # max_score = 0
 
-            # if total_score_col != -1:
-            #	total_score = float(tokens[total_score_col])
+                # if total_score_col != -1:
+                #	total_score = float(tokens[total_score_col])
 
-            # if max_score_col != -1:
-            #	max_score = float(tokens[max_score_col])
+                # if max_score_col != -1:
+                #	max_score = float(tokens[max_score_col])
 
-            uid = get_uid(sid, location)
+                uid = get_uid(sid, location)
+
+        
+                for col in ext_cols:
+                    ext_data[uid][col] = float(tokens[ext_col_indexes[col]])
+
+                # total_score_map[lid] = total_score
+                # max_score_map[lid] = max_score
+
+                # sys.stderr.write(str(location) + " " + lid + "\n")
+                # exit(0)
 
             
 
-            for col in ext_cols:
-                ext_data[uid][col] = float(tokens[ext_col_indexes[col]])
-
-            # total_score_map[lid] = total_score
-            # max_score_map[lid] = max_score
-
-            # sys.stderr.write(str(location) + " " + lid + "\n")
-            # exit(0)
-
-        f.close()
-
-    location_core_map, location_map = core_regions(
-        fids)  # min_common_regions(fids)
+    location_core_map, location_map = core_regions(fids)  # min_common_regions(fids)
 
     # keep the ids sorted
     # ids = sorted(ids)

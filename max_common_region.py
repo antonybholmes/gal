@@ -113,10 +113,6 @@ def _max_common_regions(uids: list[str],
 
         overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
         
-      
-        if 'chr10:104809405' in str(loc1):
-            print('ll', uid1, len(grouped_locations), grouped_locations, loc1, len(loc1))
-
         for uid in grouped_locations:
             # sid is a sample id
             sid, _ = mcr.parse_uid(uid)  # sample_id_map[uid]
@@ -126,12 +122,6 @@ def _max_common_regions(uids: list[str],
 
             #used.add(uid)
             allocated.add(uid)
-
-            if 'chr10:104809368-104810173' in str(loc1):
-                print(loc1, uid1, 'alloc', uid)
-
-            if 'chr10:104809405-104810173' in str(loc1):
-                print(loc1, uid1, 'alloc', uid)
 
 
     # after iterating over everything, group locations by group
