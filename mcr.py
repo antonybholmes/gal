@@ -446,7 +446,7 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
     # order
 
     uids = []
-    location_map = collections.defaultdict(genomic.Location)
+    uid_to_loc_map = collections.defaultdict(genomic.Location)
     bin_to_uids_map = collections.defaultdict(lambda: collections.defaultdict(list[str]))
 
     for location in locations:
@@ -457,7 +457,7 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
 
             uids.append(uid)
 
-            location_map[uid] = location
+            uid_to_loc_map[uid] = location
 
             bin_start = int(location.start / BIN_SIZE)
             bin_end = int(location.end / BIN_SIZE)
@@ -465,9 +465,9 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
             for bin in range(bin_start, bin_end + 1):
                 bin_to_uids_map[location.chr][bin].append(uid)
 
-    location_core_map = core_regions(uids, location_map, bin_to_uids_map)
+    location_core_map = core_regions(uids, uid_to_loc_map, bin_to_uids_map)
 
-    return location_core_map, location_map
+    return location_core_map, uid_to_loc_map
 
 
 def create_overlap_table(files: list[str], core_regions=min_common_regions):
