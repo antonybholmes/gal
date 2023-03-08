@@ -168,7 +168,8 @@ def peak_overlap(peaks, chr, start, end):
 def get_test_uids(uid1: str, loc1: genomic.Location, bin_to_uids_map: dict[str, dict[int, list[str]]]) -> set[str]:
     sid1, _ = parse_uid(uid1)
 
-    test_uids = set()
+    test_uids = []
+    used = set()
 
     bin_start = int(loc1.start / BIN_SIZE)
     bin_end = int(loc1.end / BIN_SIZE)
@@ -176,14 +177,17 @@ def get_test_uids(uid1: str, loc1: genomic.Location, bin_to_uids_map: dict[str, 
     for bin in range(bin_start, bin_end + 1):
         for uid in bin_to_uids_map[loc1.chr][bin]:
             sid2, _ = parse_uid(uid)
-            if sid2 != sid1:
+            #if sid2 != sid1:
+            if uid != uid1 and uid not in used:
+
                 # only test samples from other files, note that
                 # we allow peaks from the allocated list since
                 # the peak we are testing might overlap a peak
                 # that was already allocated. The allocated peak
                 # won't be check again, but we will check the
                 # contrary
-                test_uids.add(uid)
+                test_uids.append(uid)
+                used.add(uid)
 
     return test_uids
 
@@ -232,6 +236,8 @@ def _min_common_regions(uids: list[str],
         if uid1 in allocated:
             continue
 
+        sid1, _ = parse_uid(uid1)
+
         # get its location
         loc1 = uid_to_loc_map[uid1]
 
@@ -256,16 +262,14 @@ def _min_common_regions(uids: list[str],
 
         test_uids = get_test_uids(uid1, loc1, bin_to_uids_map)
 
-        used = set()
+        used = {uid1}
 
         # Form the largest group of overlapping peaks
         exhausted = False
 
-        if 'chr10:110153776-110153972' in loc1.__str__():
-            print('ww')
-
         while not exhausted:
-            grouped_uids = {uid1}
+            grouped_uids = [uid1]
+            
 
             # reset for each group search
             loc1 = uid_to_loc_map[uid1]
@@ -299,7 +303,7 @@ def _min_common_regions(uids: list[str],
 
                 overlap = genomic.overlap_locations(loc1, loc2)
                 
-                if 'chr10:110153776-110153972' in loc1.__str__() or 'chr10:110153776-110153972' in loc2.__str__():
+                if 'chr10:11684666-11684803' in loc1.__str__() or 'chr10:11684666-11684803' in loc2.__str__():
                     print('overlap', loc1, loc2, overlap)
 
                 if overlap is not None:
@@ -311,7 +315,8 @@ def _min_common_regions(uids: list[str],
                     loc1 = overlap
 
                     # we found someone we are overlapping
-                    grouped_uids.add(uid2)
+                    grouped_uids.append(uid2)
+                    #used.add(uid2)
 
                 # if max_loc.start == min_loc.start and max_loc.end > min_loc.end:
                 # 	# Peak 1 and 2 start at the same point but peak 2 is wider
@@ -361,13 +366,9 @@ def _min_common_regions(uids: list[str],
 
             # if there are multiple locations, group them and mark as
             # allocated. If there is only one location, it either means
-            # we found nothing or the loops are exhausted. We check that
-            # the grouped location (same as uid1) has not been allocated
-            # in a previous loop and if not, it means this is a single
-            # location and does not overlap anything so we can mark it
-            # allocated and move on
+            # we found nothing or the loops are exhausted.
 
-            if len(grouped_uids) > 1 or next(iter(grouped_uids)) not in allocated:
+            if len(grouped_uids) > 1:
                 for uid in grouped_uids:
                     # sid is a sample id
                     sid, _ = parse_uid(uid)  # sample_id_map[uid]
@@ -377,10 +378,20 @@ def _min_common_regions(uids: list[str],
 
                     used.add(uid)
                     allocated.add(uid)
+            else:
+                # group contains 1 item, the seed uid
 
-            if len(grouped_uids) == 1:
+                # We check that the grouped location (same as uid1) has not been 
+                # allocated in a previous loop and if not, it means this is a single
+                # location and does not overlap anything so we can mark it
+                # allocated and move on
+                if uid1 not in allocated:
+                    location_core_map[overlap_location][sid1].add(uid1)
+                    allocated.add(uid1)
+
                 # we can stop looking
                 exhausted = True
+                break
 
     # after iterating over everything, group locations by group
 
