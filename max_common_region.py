@@ -98,9 +98,8 @@ def _max_common_regions(uids: list[str],
 
             overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
             
-            if overlap_location == 'chr10:11683405-11684000':
-                print('aha', grouped_locations)
-                #exit(0)
+            if 'chr10:104809368' in str(loc1):
+                print(loc1, len(grouped_locations), grouped_locations, len(loc1))
 
             for uid in grouped_locations:
                 # sid is a sample id

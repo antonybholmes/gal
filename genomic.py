@@ -123,6 +123,10 @@ class Location:
 
     def __repr__(self) -> str:
         return self.__str__()
+    
+    def __len__(self) -> int:
+        return self.length
+    
 
 def sort_locations(locations: Iterable[Location]):
     """Sort locations by chr and start

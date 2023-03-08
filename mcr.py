@@ -368,20 +368,12 @@ def _min_common_regions(uids: list[str],
             # allocated and move on
 
             if len(grouped_uids) > 1 or next(iter(grouped_uids)) not in allocated:
-                
-            
                 for uid in grouped_uids:
                     # sid is a sample id
                     sid, _ = parse_uid(uid)  # sample_id_map[uid]
 
                     # if the uid has not been allocated yet
                     location_core_map[overlap_location][sid].add(uid)
-
-                    if 'chr10:110153776-110153972' in uid:
-                        print('allocated 1', uid1, uid)
-
-                    if 'chr10:110153588-110153799' in uid:
-                        print('allocated 2', uid1, uid)
 
                     used.add(uid)
                     allocated.add(uid)
@@ -447,7 +439,7 @@ def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_reg
 
         for sid in sids:
             uid = get_uid(sid, location)
-            
+
             uids.append(uid)
 
             location_map[uid] = location
