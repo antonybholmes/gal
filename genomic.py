@@ -19,7 +19,7 @@ from enum import Enum
 from importlib.metadata import metadata
 import re
 import sys
-from typing import Any, Mapping, Union
+from typing import Any, Iterable, Mapping, Union
 
 from . import text
 from . import species
@@ -123,6 +123,28 @@ class Location:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+def sort_locations(locations: Iterable[Location]):
+    """Sort locations by chr and start
+
+    Args:
+        locations (Iterable[Location]): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    m = collections.defaultdict(lambda: collections.defaultdict(list))
+
+    for l in locations:
+        m[l.chr][l.start].append(l)
+
+    ret = []
+
+    for chr in sorted(m):
+        for start in sorted(m[chr]):
+            ret.extend(m[chr][start])
+
+    return ret
 
 
 def mid(location: Location):

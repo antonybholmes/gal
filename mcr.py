@@ -183,7 +183,8 @@ def peak_overlap(peaks, chr, start, end):
 
     return features
 
-def get_test_uids(uid1:str, loc1:genomic.Location, bin_to_uids_map: dict[str, dict[int, list[str]]]) -> set[str]:
+
+def get_test_uids(uid1: str, loc1: genomic.Location, bin_to_uids_map: dict[str, dict[int, list[str]]]) -> set[str]:
     sid1, _ = parse_uid(uid1)
 
     test_uids = set()
@@ -205,9 +206,10 @@ def get_test_uids(uid1:str, loc1:genomic.Location, bin_to_uids_map: dict[str, di
 
     return test_uids
 
+
 def _min_common_regions(uids: list[str],
                         uid_to_loc_map: dict[str, genomic.Location],
-                        bin_to_uids_map: dict[str, dict[int, list[str]]]) -> dict[str, dict[str, str]]:
+                        bin_to_uids_map: dict[str, dict[int, list[str]]]) -> dict[str, dict[str, set[str]]]:
     """
     Calculates all overlaps between a set of sample locations
 
@@ -223,7 +225,7 @@ def _min_common_regions(uids: list[str],
     # lets see what overlaps
 
     location_core_map = collections.defaultdict(
-        lambda: collections.defaultdict(str))
+        lambda: collections.defaultdict(set))
 
     # debug for testing to end remove as it truncates list
     # locations = locations[1:(len(locations) / 4)]
@@ -243,7 +245,7 @@ def _min_common_regions(uids: list[str],
     for uid1 in uids:
         # of the form id=chrN:start-end, an lid
 
-         # if the peaks has already been assigned to
+        # if the peaks has already been assigned to
         # an overlap, don't bother checking it as it
         # will duplicate regions
         if uid1 in allocated:
@@ -315,8 +317,16 @@ def _min_common_regions(uids: list[str],
 
                 overlap = genomic.overlap_locations(loc1, loc2)
 
-                if overlap is None:
-                    continue
+                if overlap is not None:
+                    # change the start1 and end1 coordinates to reflect the overlap
+                    # regions so that each subsequent match must be within this region
+                    # this prevents long peaks that overlap two smaller peaks who
+                    # themselves do not overlap each other
+                    # genomic.Location(loc1.chr, overlap_start, overlap_start + overlap - 1)
+                    loc1 = overlap
+
+                    # we found someone we are overlapping
+                    grouped_uids.add(uid2)
 
                 # if max_loc.start == min_loc.start and max_loc.end > min_loc.end:
                 # 	# Peak 1 and 2 start at the same point but peak 2 is wider
@@ -338,24 +348,24 @@ def _min_common_regions(uids: list[str],
                 # 	pass
 
                 # We have not found an overlap yet so continue
-                #if overlap == -1:
+                # if overlap == -1:
                 #    continue
 
                 # change the start1 and end1 coordinates to reflect the overlap
-                # region so that each subsequent match must be within this region
+                # regions so that each subsequent match must be within this region
                 # this prevents long peaks that overlap two smaller peaks who
                 # themselves do not overlap each other
-                loc1 = overlap #genomic.Location(loc1.chr, overlap_start, overlap_start + overlap - 1)
+                # loc1 = overlap #genomic.Location(loc1.chr, overlap_start, overlap_start + overlap - 1)
 
                 # we found someone we are overlapping
-                grouped_uids.add(uid2)
+                # grouped_uids.add(uid2)
 
             # now we have a list of all locations that overlap each other
 
             # if we have a group of entries, merge them, otherwise if the
             # location is by itself, only add it if it has not been allocated
             # to another group. This prevents duplicate entries of the whole
-            # region by itself plus any overlapping regions
+            # regions by itself plus any overlapping regions
             # if len(grouped_locations) > 1 or uid1 not in allocated:
 
             overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
@@ -378,11 +388,11 @@ def _min_common_regions(uids: list[str],
                     sid, _ = parse_uid(uid)  # sample_id_map[uid]
 
                     # if the uid has not been allocated yet
-                    location_core_map[overlap_location][sid] = uid
+                    location_core_map[overlap_location][sid].add(uid)
 
                     used.add(uid)
                     allocated.add(uid)
-  
+
             if len(grouped_uids) == 1:
                 # we can stop looking
                 exhausted = True
@@ -392,7 +402,7 @@ def _min_common_regions(uids: list[str],
     return location_core_map
 
 
-def min_common_regions(fids: list[tuple[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
+def min_common_regions(fids: list[tuple[str, str]], core_regions=_min_common_regions) -> tuple[dict[str, dict[str, str]], dict[str, genomic.Location]]:
     """
     Takes a list of file and finds the common (if any) overlapping regions
 
@@ -404,7 +414,8 @@ def min_common_regions(fids: list[tuple[str, str]]) -> tuple[dict[str, dict[str,
     """
 
     location_map = collections.defaultdict(genomic.Location)
-    bin_to_uids_map = collections.defaultdict(lambda: collections.defaultdict(set[str]))
+    bin_to_uids_map = collections.defaultdict(
+        lambda: collections.defaultdict(set[str]))
     uids = []
 
     for item in fids:
@@ -445,12 +456,12 @@ def min_common_regions(fids: list[tuple[str, str]]) -> tuple[dict[str, dict[str,
 
     f.close()
 
-    location_core_map = _min_common_regions(uids, location_map, bin_to_uids_map)
+    location_core_map = core_regions(uids, location_map, bin_to_uids_map)
 
     return location_core_map, location_map
 
 
-def create_overlap_table(files: list[str], core_regions = min_common_regions):
+def create_overlap_table(files: list[str], core_regions=min_common_regions):
     sids = []
     fids = []
 
@@ -545,7 +556,8 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
 
         f.close()
 
-    location_core_map, location_map = core_regions(fids) #min_common_regions(fids)
+    location_core_map, location_map = core_regions(
+        fids)  # min_common_regions(fids)
 
     # keep the ids sorted
     # ids = sorted(ids)
@@ -555,6 +567,7 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
     for sid in sids:
         header.extend([f'{sid} {c}' for c in ext_cols])
 
+    header.append("# Overlapping Samples")
     header.append("# Overlapping Peaks")
 
     header.extend([f'Sample {s}' for s in sids])
@@ -572,15 +585,19 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
 
         overlap_width = overlap_location.end - overlap_location.start + 1
 
-        c = len(location_core_map[core_location])
+        sample_count = len(location_core_map[core_location])
 
-        locs = []
+        peak_count = 0
+        for sid in location_core_map[core_location]:
+            peak_count += len(location_core_map[core_location][sid])
+
+        locs: list[genomic.Location] = []
 
         for sid in sids:
             if sid in location_core_map[core_location]:
                 uid = location_core_map[core_location][sid]
-                loc1 = location_map[uid]
-                locs.append(loc1)
+                locs.extend(genomic.sort_locations(
+                    [location_map[uid] for uid in location_core_map[core_location][sid]]))
 
         start = min([loc.start for loc in locs])
         end = max([loc.end for loc in locs])
@@ -608,7 +625,8 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
             # row.extend([str(ext_data[lid][col]) for col in ext_cols])
 
         # add count/number of cols we appear in
-        row.append(str(c))
+        row.append(str(sample_count))
+        row.append(str(peak_count))
 
         # place ids in table skip and just use peaks locations as peak ids
         # for sid in sids:
@@ -622,11 +640,12 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
         for sid in sids:
             if sid in location_core_map[core_location]:
                 # ";".join(sorted(location_core_map[core_location][id]))
-                uid = location_core_map[core_location][sid]
+                #uid = location_core_map[core_location][sid]
 
-                loc1 = location_map[uid]
+                locs = genomic.sort_locations(
+                    [location_map[uid] for uid in sorted(location_core_map[core_location][sid])])
 
-                row.append(str(loc1))
+                row.append(';'.join([str(loc) for loc in locs]))
             else:
                 row.append(text.NA)
 
@@ -635,15 +654,21 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
         for sid in sids:
             if sid in location_core_map[core_location]:
                 # ";".join(sorted(location_core_map[core_location][id]))
-                uid = location_core_map[core_location][sid]
+                #uid = location_core_map[core_location][sid]
 
-                loc1 = location_map[uid]
+                #loc1 = location_map[uid]
 
-                overlap_fraction = genomic.overlap_fraction(
-                    overlap_location, loc1)
+                locs = genomic.sort_locations(
+                    [location_map[uid] for uid in sorted(location_core_map[core_location][sid])])
+
+                fracs = [genomic.overlap_fraction(
+                    overlap_location, loc) for loc in locs]
+
+                # overlap_fraction = genomic.overlap_fraction(
+                #    overlap_location, loc1)
 
                 row.append(
-                    str(min(100, max(0, np.round(overlap_fraction * 100, 2)))))
+                    ';'.join([str(min(100, max(0, np.round(f * 100, 2)))) for f in fracs]))
             else:
                 row.append('0')
 
@@ -655,5 +680,3 @@ def create_overlap_table(files: list[str], core_regions = min_common_regions):
         data.append(row)
 
     return pd.DataFrame(data, columns=header)
-
-

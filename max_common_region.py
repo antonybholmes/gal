@@ -11,7 +11,7 @@ from . import mcr
 
 def _max_common_regions(uids: list[str],
                         uid_to_loc_map: dict[str, genomic.Location],
-                        bin_to_uids_map: dict[int, list[str]]) -> dict[str, dict[str, str]]:
+                        bin_to_uids_map: dict[int, list[str]]) -> dict[str, dict[str, set[str]]]:
     """
     Join all overlapping peaks into one, i.e. keep expanding the region as we
     find overlapping peaks. Unlike finding the minimum
@@ -28,7 +28,7 @@ def _max_common_regions(uids: list[str],
     # lets see what overlaps
 
     location_core_map = collections.defaultdict(
-        lambda: collections.defaultdict(str))
+        lambda: collections.defaultdict(set))
 
     # debug for testing to end remove as it truncates list
     # locations = locations[1:(len(locations) / 4)]
@@ -93,17 +93,21 @@ def _max_common_regions(uids: list[str],
             # if we have a group of entries, merge them, otherwise if the
             # location is by itself, only add it if it has not been allocated
             # to another group. This prevents duplicate entries of the whole
-            # region by itself plus any overlapping regions
+            # regions by itself plus any overlapping regions
             # if len(grouped_locations) > 1 or uid1 not in allocated:
 
             overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
             
+            if overlap_location == 'chr10:11683405-11684000':
+                print('aha', grouped_locations)
+                #exit(0)
+
             for uid in grouped_locations:
                 # sid is a sample id
                 sid, _ = mcr.parse_uid(uid)  # sample_id_map[uid]
 
                 # if the uid has not been allocated yet
-                location_core_map[overlap_location][sid] = uid
+                location_core_map[overlap_location][sid].add(uid)
 
                 used.add(uid)
                 allocated.add(uid)
@@ -118,61 +122,7 @@ def _max_common_regions(uids: list[str],
 
 
 def max_common_regions(fids: list[tuple[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
-    """
-    Takes a list of file and finds the common (if any) overlapping regions
-
-    Args:
-            fids (list[tuple[str, str]]):	 list of sample id and file to match
-
-    Returns:
-            dict[str, dict[str, str]]: _description_
-    """
-
-    location_map = collections.defaultdict(genomic.Location)
-    bin_to_uids_map = collections.defaultdict(lambda: collections.defaultdict(set[str]))
-    uids = []
-
-    for item in fids:
-        sid, file = item
-
-        f = open(file, 'r')
-
-        # Skip header
-        if 'Peaks' in file or 'tsv' in file:
-            f.readline()
-
-        for line in f:
-            tokens = line.strip().split('\t')
-
-            if genomic.is_location(tokens[0]):
-                location = genomic.parse_location(tokens[0])
-            else:
-                if genomic.is_chr(tokens[0]):
-                    location = genomic.Location(
-                        tokens[0], int(tokens[1]), int(tokens[2]))
-                else:
-                    print(f'Invalid line: {line}', file=sys.stderr)
-                    continue
-
-            uid = mcr.get_uid(sid, location)  # f'{sid}={str(location)}'
-
-            # sys.stderr.write('lid ' + lid + '\n')
-
-            uids.append(uid)
-
-            location_map[uid] = location
-
-            bin_start = int(location.start / mcr.BIN_SIZE)
-            bin_end = int(location.end / mcr.BIN_SIZE)
-
-            for bin in range(bin_start, bin_end + 1):
-                bin_to_uids_map[location.chr][bin].add(uid)
-
-    f.close()
-
-    location_core_map = _max_common_regions(uids, location_map, bin_to_uids_map)
-
-    return location_core_map, location_map
+    return mcr.min_common_regions(fids, _max_common_regions)
 
 
 def create_max_common_region_table(files: list[str]):
