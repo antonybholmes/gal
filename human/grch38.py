@@ -174,7 +174,8 @@ class AnnotatePeak(peaks.AnnotatePeak):
         super().__init__(type)
         # annotations specific to human
 
-        self.add_module(GRCh38Version())
+        # skip version module
+        #self.add_module(GRCh38Version())
 
         self.add_module(HumanAnnotateGene(genomic.promoter_type(
             prom_ext_5p, prom_ext_3p), prom_ext_5p, prom_ext_3p, bin_size))
@@ -188,8 +189,9 @@ class AnnotatePeak(peaks.AnnotatePeak):
         self.add_module(tss.RefSeqEnd(REFSEQ_FILE,
                                       REFSEQ_GENES, prom_ext_5p, prom_ext_3p))
 
+        # since we already add the closest, start at 2 and 
         self.add_module(
-            peaks.NClosestGenes(REFSEQ_GENES, refseq_start, n=n_closest))
+            peaks.NClosestGenes(REFSEQ_GENES, refseq_start, start=2, n=n_closest - 1))
 
         # human.REFSEQ_GENES, prom_ext_5p, bin_size))
         self.add_module(mir.MirAnnotation(HumanMirs()))

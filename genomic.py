@@ -553,6 +553,16 @@ def parse_location_cols(tokens: list[str], offset: int = 0) -> Location:
 def pad_location(location: Location, padding5p: int = 0, padding3p: int = 0):
     return Location(location.chr, location.start - padding5p, location.end + padding3p)
 
+def max_region(location1: Location, location2: Location) -> Union[None, Location]:
+    if location1.chr != location2.chr:
+        return None
+
+    min_start = min(location1.start, location2.start)
+    #max_end = max(location1.end, location2.end)
+    #min_start = min(location1.start, location2.start)
+    max_end = max(location1.end, location2.end)
+
+    return Location(location1.chr, min_start, max_end)
 
 def overlap_locations(location1: Location, location2: Location) -> Union[None, Location]:
     """Overlap two locations and return a location representing the overlap

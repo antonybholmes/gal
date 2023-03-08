@@ -376,14 +376,16 @@ class NClosestGenes(genomic.Annotation):
 				 refseq_genes: tss.RefSeqAnnotation,
 				 refseq_start: tss.RefSeqTss,
 				 species: species.Species = species.Species.HUMAN,
+				 start: int = 1,
 				 n: int = 5):
 		super().__init__('n-closest-genes', species=species)
 		self._refseq_genes = refseq_genes
-		self._refseq_start = refseq_start
+		self._refseq_start:int = refseq_start
 		self._n: int = n
-		self._ncols = n * 4
+		self._start:int = start
+		self._ncols:int = n * 4
 		self._header = []
-		for i in range(1, self._n + 1):
+		for i in range(start, self._start + self._n):
 			self._header.append(f'#{i} Closest {headings.REFSEQ_ID}')
 			self._header.append(f'#{i} Closest {headings.ENTREZ_ID}')
 			self._header.append(
@@ -399,7 +401,8 @@ class NClosestGenes(genomic.Annotation):
 		tss_genes = self._refseq_start.get_n_closest_genes(location, n=50)
 
 		used = set()
-		n = 1
+		ci = 1 #self._start
+		cn = self._start + self._n - 1
 
 		# find n unique entrez ids since there can be multiple refseqs with
 		# same gene id
@@ -411,26 +414,27 @@ class NClosestGenes(genomic.Annotation):
 
 			if gene_annotation.entrez in used:
 				continue
-
+			
 			used.add(gene_annotation.entrez)
+			
+			if ci >= self._start:
+				ret.append(gene_annotation.refseq)
+				ret.append(gene_annotation.entrez)
+				ret.append(gene_annotation.symbol)
+				ret.append(str(tss_gene.d))
 
-			ret.append(gene_annotation.refseq)
-			ret.append(gene_annotation.entrez)
-			ret.append(gene_annotation.symbol)
-			ret.append(str(tss_gene.d))
+				# keep track of how many unique genes we've found
 
-			# keep track of how many unique genes we've found
+				if isinstance(row_map, dict):
+					row_map[f'#{ci} Closest {headings.REFSEQ_ID}'] = gene_annotation.refseq
+					row_map[f'#{ci} Closest {headings.ENTREZ_ID}'] = gene_annotation.entrez
+					row_map[f'#{ci} {headings.CLOSEST_GENE_SYMBOL}'] = gene_annotation.symbol
+					row_map[f'#{ci} TSS Closest Distance'] = tss_gene.d
 
-			if isinstance(row_map, dict):
-				row_map[f'#{n} Closest {headings.REFSEQ_ID}'] = gene_annotation.refseq
-				row_map[f'#{n} Closest {headings.ENTREZ_ID}'] = gene_annotation.entrez
-				row_map[f'#{n} {headings.CLOSEST_GENE_SYMBOL}'] = gene_annotation.symbol
-				row_map[f'#{n} TSS Closest Distance'] = tss_gene.d
-
-			if n == self._n:
+			if ci == cn:
 				break
 
-			n += 1
+			ci += 1
 
 		while len(ret) < self._ncols:
 			ret.append(text.NA)
@@ -814,11 +818,16 @@ class AnnotatePeak:
 			tokens = f.readline().strip().split('\t')
 			first_col_is_loc = genomic.is_location(tokens[0])
 
-			if first_col_is_loc:
+			if not first_col_is_loc:
 				# first col is location so don't duplicate location
+				file_header += [LOCATION_HEADING] #[WIDTH_HEADING]
+			
+			# see if we have a width col
+
+			has_width_col = len(list(filter(lambda x: 'width' in x.lower(), tokens))) > 0
+
+			if not has_width_col:
 				file_header += [WIDTH_HEADING]
-			else:
-				file_header += [LOCATION_HEADING, WIDTH_HEADING]
 
 			# reopen file and skip first line so we process records
 			# correctly
@@ -973,7 +982,15 @@ class AnnotatePeak:
 				annotation = [str(location), width]
 				row_map[WIDTH_HEADING] = width
 			else:
-				annotation = tokens + [width] if first_col_is_loc else [str(location), width] # + tokens[1 if first_col_is_loc else 0:] # tokens[0:len(file_header)-2]
+				annotation = tokens
+				
+				if not first_col_is_loc:
+					annotation += [str(location)]
+
+				if not has_width_col:
+					annotation += [WIDTH_HEADING]
+
+				
 				#annotation.append(location)
 
 				# Use the columns as they are in the file, skip
@@ -1188,6 +1205,8 @@ class AnnotatePeak:
 
 			# update row map
 			for i in range(0, len(names)):
+				#print(names[i])
+				#print(annotations[i])
 				row_map[names[i]] = annotations[i]
 
 			row.extend(annotations)
