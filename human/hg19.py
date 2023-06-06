@@ -24,20 +24,23 @@ from .. import tss
 from .. import core
 from .. import tad
 from .. import db
+from .. import bed
 import os
 
+#REFSEQ_FILE = os.path.join(
+#    core.PATH, "assets/human/hg19/ucsc_refseq_exons_entrez_hg19.v20220921.tsv")
 REFSEQ_FILE = os.path.join(
-    core.PATH, "assets/human/hg19/ucsc_refseq_exons_entrez_hg19.v20220921.tsv")
+    core.PATH, "assets/human/hg19/ucsc_refseq_exons_entrez_hg19.v20150217.txt")
 MIR_BED_FILE = os.path.join(
-    core.PATH, "assets/human/hg19/mirbase/v22/mir.bed")
+    core.PATH, "assets/human/hg19/mirbase/v20/mir.bed")
 TAD_FILE = os.path.join(
     core.PATH, "assets/human/hg19/gcb_tads.gencode.v38lift37.genes.approved.tsv")
 TANDEM_REPEATS_FILE = os.path.join(
-    core.PATH, "assets/human/hg19/simple_tandem_repeats.bed")
+    core.PATH, "assets/human/hg19/simple_tandem_repeats_hg19.bed")
 CHROM_SIZE_FILE = os.path.join(
     core.PATH, "assets/human/hg19/chrom.sizes.txt")
 UCSC_CENTROMERES_FILE = os.path.join(
-    core.PATH, "assets/human/hg19/ucsc_centromeres.bed")
+    core.PATH, "assets/human/hg19/ucsc_centromeres_hg19.bed")
 UCSC_TELOMERES_FILE = os.path.join(
     core.PATH, "assets/human/hg19/ucsc_telomeres.bed")
 
@@ -104,8 +107,8 @@ class HumanRepetitive(centromeres.Repetitive):
         return cls.instance
 
     def __init__(self):
-        super().__init__(genomic.SearchGenomicBedFeatures(UCSC_CENTROMERES_FILE),
-                         genomic.SearchGenomicBedFeatures(UCSC_TELOMERES_FILE))
+        super().__init__(bed.SearchGenomicBedFeatures(UCSC_CENTROMERES_FILE),
+                         bed.SearchGenomicBedFeatures(UCSC_TELOMERES_FILE))
 
 
 class HumanSimpleTandemRepeats(centromeres.SimpleTandemRepeats):
@@ -119,7 +122,7 @@ class HumanSimpleTandemRepeats(centromeres.SimpleTandemRepeats):
         return cls.instance
 
     def __init__(self):
-        super().__init__(genomic.SearchGenomicBedFeatures(TANDEM_REPEATS_FILE))
+        super().__init__(bed.SearchGenomicBedFeatures(TANDEM_REPEATS_FILE))
 
 
 class HumanOverlapTss(tss.OverlapTss):
@@ -169,7 +172,7 @@ class EncodeBlacklist(genomic.Annotation):
     def __init__(self):
         super().__init__('encode-black-list')
         self._trf_overlaps = genomic.GenomicFeaturesOverlap(
-            genomic.SearchGenomicBedFeatures(ENCODE_BLACKLIST_FILE))
+            bed.SearchGenomicBedFeatures(ENCODE_BLACKLIST_FILE))
 
     def get_names(self):
         return ["ENCODE blacklist"]
@@ -198,7 +201,7 @@ class GiuliaBlacklist(genomic.Annotation):
     def __init__(self):
         super().__init__('giulia-black-list')
         self._trf_overlaps = genomic.GenomicFeaturesOverlap(
-            genomic.SearchGenomicBedFeatures(GIULIA_BLACKLIST_FILE))
+            bed.SearchGenomicBedFeatures(GIULIA_BLACKLIST_FILE))
 
     def get_names(self):
         return ["Giulia blacklist"]

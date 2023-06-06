@@ -42,11 +42,11 @@ def parse_rdf_gene_variant_id(text):
     return int(re.match(r'.*(\d+)$', text).group(1))
 
 
-def create_variant_id(id:str, chr:str, start:int, end:int):
+def create_variant_id(id: str, chr: str, start: int, end: int):
     return f'{id}#{genomic.location_string(chr, start, end)}'
 
 
-def parse_location_from_variant(location:str) -> genomic.Location:
+def parse_location_from_variant(location: str) -> genomic.Location:
     matcher = re.match(r'.+(chr.+):(\d+)-(\d+)', location)
 
     chr = matcher.group(1)
@@ -58,7 +58,7 @@ def parse_location_from_variant(location:str) -> genomic.Location:
     return location
 
 
-def parse_id_from_variant(variant_id:str) -> str:
+def parse_id_from_variant(variant_id: str) -> str:
     matcher = re.match(r'^([^#]+).*', variant_id)
 
     return matcher.group(1)
@@ -108,7 +108,7 @@ class Gene(genomic.Feature):
     def __init__(self, id: str, symbol: str, strand: str, chr: str, start: int, end: int):
         """
         Creates a gene genomic feature
-        
+
         Args:
             id (str): gene id, such as an refseq id
             symbol (str): gene name, such as "BCL6"
@@ -116,7 +116,7 @@ class Gene(genomic.Feature):
             chr (str): chromosome
             start (int): 1 based start location
             end (int): 1 based end location
-        """        
+        """
         super().__init__(chr, start, end, strand)
         self.add_id(GENE_ID, id)
         self.add_id(GENE_SYMBOL, symbol)
@@ -135,17 +135,17 @@ class Gene(genomic.Feature):
 
 
 class RefSeqGene(Gene):
-    def __init__(self, refseq:str, entrez:str, symbol:str, strand:str, chr:str, start:int, end:int):
+    def __init__(self, refseq: str, entrez: str, symbol: str, strand: str, chr: str, start: int, end: int):
         super().__init__(refseq, symbol, strand, chr, start, end)
         self.add_id(GENE_REFSEQ, refseq)
         self.add_id(GENE_ENTREZ, entrez)
 
     @property
-    def refseq(self)-> str:
+    def refseq(self) -> str:
         return self.get_id(GENE_REFSEQ)
 
     @property
-    def entrez(self)-> str:
+    def entrez(self) -> str:
         return self.get_id(GENE_ENTREZ)
 
 
@@ -156,7 +156,7 @@ class RefSeqGenes:
     """
 
     def __init__(self, file):
-        self._genes = {} #collections.defaultdict(Gene)
+        self._genes = {}  # collections.defaultdict(Gene)
         self._file = file
 
         print(f'Loading genes from {file}...', file=sys.stderr)
@@ -206,11 +206,11 @@ class RefSeqGenes:
         f.close()
 
     @property
-    def genes(self)-> dict[str, RefSeqGene]:
+    def genes(self) -> dict[str, RefSeqGene]:
         return self._genes
 
     @property
-    def file(self)-> str:
+    def file(self) -> str:
         return self._file
 
     def get_gene(self, variant_id: str) -> Optional[RefSeqGene]:
@@ -222,7 +222,7 @@ class GeneOrientatedPeaks:
     Core annotation for gene oriented peaks
     """
 
-    def __init__(self, type: str = "Peak", all_gene_mode:bool = False):
+    def __init__(self, type: str = "Peak", all_gene_mode: bool = False, show_scores: bool = True, collapse_id: str = 'gene_symbol'):
         """Create a new object.
 
         Args:
@@ -233,88 +233,93 @@ class GeneOrientatedPeaks:
 
         self.type = type
         self._all_gene_mode = all_gene_mode
-        self.expression_list:list[expression.GeneExpression] = []
-        self.expression_list_headers:list[str] = []
+        self._show_scores = show_scores
+        self._collapse_id = collapse_id
+        self.expression_list: list[expression.GeneExpression] = []
+        self.expression_list_headers: list[str] = []
 
-        #self.affy_gene_cb_vs_m_expression = expression.AffyGeneCBvsMExpression()
-        #self.affy_gene_cb_vs_n_expression = expression.AffyGeneCBvsNExpression()
-        #self.rna_gene_cb_vs_m_expression = expression.RnaSeqGeneCBvsMExpression()
-        #self.rna_gene_cb_vs_n_expression = expression.RnaSeqGeneCBvsNExpression()
+        # self.affy_gene_cb_vs_m_expression = expression.AffyGeneCBvsMExpression()
+        # self.affy_gene_cb_vs_n_expression = expression.AffyGeneCBvsNExpression()
+        # self.rna_gene_cb_vs_m_expression = expression.RnaSeqGeneCBvsMExpression()
+        # self.rna_gene_cb_vs_n_expression = expression.RnaSeqGeneCBvsNExpression()
 
-        #self.expression_list_headers.append('GEP Affy GCvsN')
-        #self.expression_list_headers.append('GEP Affy GCvsM')
-        #self.expression_list.append(
+        # self.expression_list_headers.append('GEP Affy GCvsN')
+        # self.expression_list_headers.append('GEP Affy GCvsM')
+        # self.expression_list.append(
         #    expression.AffyGeneCBvsNExpression())
-        #self.expression_list.append(
+        # self.expression_list.append(
         #    expression.AffyGeneCBvsMExpression())
 
-        #self.expression_list_headers.append('RNA-seq GRCh38 GCvsN')
-        #self.expression_list_headers.append('RNA-seq GRCh38 GCvsM')
-        #self.expression_list.append(
+        # self.expression_list_headers.append('RNA-seq GRCh38 GCvsN')
+        # self.expression_list_headers.append('RNA-seq GRCh38 GCvsM')
+        # self.expression_list.append(
         #    expression.RnaSeqGeneCBvsNExpression())
-        #self.expression_list.append(
+        # self.expression_list.append(
         #    expression.RnaSeqGeneCBvsMExpression())
 
         # RNA-seq from deseq2
-        #self.expression_list_headers.append('RNA-seq GCvsN DeSeq2')
-        #self.expression_list_headers.append('RNA-seq GCvsM DeSeq2')
+        # self.expression_list_headers.append('RNA-seq GCvsN DeSeq2')
+        # self.expression_list_headers.append('RNA-seq GCvsM DeSeq2')
         # self.expression_list.append(expression.RnaSeqGeneCBvsNDeSeq2Expression())
         # self.expression_list.append(expression.RnaSeqGeneCBvsMDeSeq2Expression())
 
         #
         # SUD10 stuff
         #
-        #self.expression_list_headers.append('RNA-seq SUD10 WTvsD83V')
-        #self.expression_list_headers.append('RNA-seq SUD10 WTvsSTOP')
-        #self.expression_list_headers.append('RNA-seq SUD10 D83VvsSTOP')
-        #self.expression_list.append(
+        # self.expression_list_headers.append('RNA-seq SUD10 WTvsD83V')
+        # self.expression_list_headers.append('RNA-seq SUD10 WTvsSTOP')
+        # self.expression_list_headers.append('RNA-seq SUD10 D83VvsSTOP')
+        # self.expression_list.append(
         #    expression.RnaSeqGeneSUD10WTvsD83vExpression())
-        #self.expression_list.append(
+        # self.expression_list.append(
         #    expression.RnaSeqGeneSUD10WTvsStopExpression())
-        #self.expression_list.append(
+        # self.expression_list.append(
         #    expression.RnaSeqGeneSUD10D83vsStopExpression())
 
         #
         # Mouse MEF2B vs WT
         #
 
-        #self.expression_list_headers.append('GEP Affy MEF2B Mouse WTvsKO')
-        #self.expression_list.append(
+        # self.expression_list_headers.append('GEP Affy MEF2B Mouse WTvsKO')
+        # self.expression_list.append(
         #    expression.GEPMEF2BMouseWTvsKOExpression())
 
         #
         # miR annotations
         #
 
-        #self.solid_mir_expression = expression.SolidMirExpression()
-        #self.solid_mir_cb_vs_n_expression = expression.SolidMirCBvsNExpression()
-        #self.agilent_mir_cb_vs_m_expression = expression.AgilentMirCBvsMExpression()
-        #self.agilent_mir_cb_vs_n_expression = expression.AgilentMirCBvsNExpression()
+        # self.solid_mir_expression = expression.SolidMirExpression()
+        # self.solid_mir_cb_vs_n_expression = expression.SolidMirCBvsNExpression()
+        # self.agilent_mir_cb_vs_m_expression = expression.AgilentMirCBvsMExpression()
+        # self.agilent_mir_cb_vs_n_expression = expression.AgilentMirCBvsNExpression()
 
         #
         # Sets for annotations
         #
 
-        self.collapsed_entrezes = collections.defaultdict(str)
-        self.collapsed_symbols = collections.defaultdict(str)
-        #self.collapsed_p = collections.defaultdict(list)
-        #self.collapsed_scores = collections.defaultdict(list)
-        self.collapsed_locations = collections.defaultdict(list)
-        self.collapsed_tss = collections.defaultdict(list)
-        self.collapsed_types = collections.defaultdict(list)
-        self.collapsed_centromeres = collections.defaultdict(list)
-        self.collapsed_scores = collections.defaultdict(lambda: collections.defaultdict(list))
+        self._collapsed_refseqs = collections.defaultdict(set)
+        self._collapsed_entrezes = collections.defaultdict(set)
+        self._collapsed_gene_symbols = collections.defaultdict(set)
+        # self._collapsed_p = collections.defaultdict(list)
+        # self._collapsed_scores = collections.defaultdict(list)
+        self._collapsed_locations = collections.defaultdict(list)
+        self._collapsed_tss = collections.defaultdict(list)
+        self._collapsed_types = collections.defaultdict(list)
+        self._collapsed_centromeres = collections.defaultdict(list)
+
+        self._collapsed_scores = collections.defaultdict(
+            lambda: collections.defaultdict(list))
         self._max_score_n = 0
         self._total_score_n = 0
 
         self.mirs = set()
         self.refseqs = set()
 
-        #self.collapsed_mir_types = collections.defaultdict(list)
-        #self.collapsed_mirs_p = collections.defaultdict(list)
-        #self.collapsed_mirs_scores = collections.defaultdict(list)
-        #self.collapsed_mirs_locations = collections.defaultdict(list)
-        #self.collapsed_mss = collections.defaultdict(list)
+        # self._collapsed_mir_types = collections.defaultdict(list)
+        # self._collapsed_mirs_p = collections.defaultdict(list)
+        # self._collapsed_mirs_scores = collections.defaultdict(list)
+        # self._collapsed_mirs_locations = collections.defaultdict(list)
+        # self._collapsed_mss = collections.defaultdict(list)
 
     def add_expression(self, name: str, expression: expression.GeneExpression):
         """Adds a new expression object to the pipeline which will add
@@ -324,11 +329,11 @@ class GeneOrientatedPeaks:
             name (str): Name of annotation.
             expression (expression.GeneExpression): GeneExpression object that
             will be added into the workflow.
-        """        
+        """
         self.expression_list_headers.append(name)
         self.expression_list.append(expression)
 
-    def load_peaks(self, file:str):
+    def load_peaks(self, file: str):
         f = open(file, 'r')
 
         # skip header
@@ -343,16 +348,15 @@ class GeneOrientatedPeaks:
         symbol_column = text.find_index(
             header, headings.GENE_SYMBOL)
         type_column = text.find_index(header, 'Relative To Gene')
-        
-        #p_column = text.find_index(header, headings.P_VALUE)
-        #score_column = text.find_index(header, headings.SCORE)
+
+        # p_column = text.find_index(header, headings.P_VALUE)
+        # score_column = text.find_index(header, headings.SCORE)
 
         tss_column = text.find_index(
             header, headings.TSS_DISTANCE)
         centromere_column = text.find_index(
             header, headings.CENTROMERE)
 
-        
         closest_entrez_column = text.find_index(
             header, headings.CLOSEST_ENTREZ_ID)
         closest_refseq_column = text.find_index(
@@ -370,21 +374,25 @@ class GeneOrientatedPeaks:
         max_score_column = text.find_index(
             header, "Max Score")
 
-        mir_column = text.find_index(header, headings.MIR_SYMBOL)
-        mir_type_column = text.find_index(header, 'Relative To miR')
-        mss_column = text.find_index(header, 'mIR Start Distance')
+        # mir_column = text.find_index(header, headings.MIR_SYMBOL)
+        # mir_type_column = text.find_index(header, 'Relative To miR')
+        # mss_column = text.find_index(header, 'mIR Start Distance')
+
+        lc = 0
 
         for line in f:
-            ls = line.strip()
+            ls = line.rstrip()
+
+            lc += 1
 
             if len(ls) == 0:
                 continue
 
             tokens = ls.split('\t')
 
-            #total_score = genes.find_best_p_value(
+            # total_score = genes.find_best_p_value(
             #    header, tokens)  # float(tokens[p_column])
-            #score = genes.find_best_score(
+            # score = genes.find_best_score(
             #    header, tokens)  # = float(tokens[score_column])
             location = tokens[location_column]
 
@@ -392,87 +400,105 @@ class GeneOrientatedPeaks:
             refseqs = tokens[refseq_column].split(';')
             entrezes = tokens[entrez_column].split(';')
             symbols = tokens[symbol_column].split(';')
+
             tsses = tokens[tss_column].split(';')
-            type = tokens[type_column]
+            types = tokens[type_column].split(';')
             centromere = tokens[centromere_column]
 
-            total_score = float(tokens[total_score_column]) if total_score_column != -1 else -1
+            total_score = float(
+                tokens[total_score_column]) if total_score_column != -1 else -1
             max_score = float(tokens[max_score_column]) if max_score_column != -1 else -1
 
             for i in range(0, len(refseqs)):
                 # The core id identifies the unique genes on a peak, rather than
                 #
-                entrez = entrezes[i]
-                symbol = symbols[i]
-                refseq = refseqs[i]
-                tss = tsses[i]
+                id_map = {'gene_symbol':symbols[i], 'refseq':refseqs[i], 'entrez':entrezes[i]}
 
-                if refseq != text.NA:
-                    self.refseqs.add(refseq)
-                    self.collapsed_entrezes[refseq] = entrez
-                    self.collapsed_symbols[refseq] = symbol
-                    #self.collapsed_p[refseq].append(p)
-                    #self.collapsed_scores[refseq].append(score)
-                    self.collapsed_locations[refseq].append(location)
-                    self.collapsed_tss[refseq].append(tss)
-                    self.collapsed_types[refseq].append(type)
-                    self.collapsed_centromeres[refseq].append(centromere)
+                id = id_map[self._collapse_id]
+
+                tss = tsses[i]
+                type = types[i]
+
+                if 'SDCBP2' in id:
+                    print('in', symbol_column, id, tss, type, file=sys.stderr)
+
+                if id != text.NA:
+                    self._collapsed_refseqs[id].add(id_map['refseq'])
+                    self._collapsed_entrezes[id].add(id_map['entrez'])
+                    self._collapsed_gene_symbols[id].add(id_map['gene_symbol'])
+                    # self._collapsed_p[refseq].append(p)
+                    # self._collapsed_scores[refseq].append(score)
+                    self._collapsed_locations[id].append(location)
+                    self._collapsed_tss[id].append(tss)
+                    self._collapsed_types[id].append(type)
+                    self._collapsed_centromeres[id].append(centromere)
 
                     # for all peaks we find keep track of every score
                     if max_score != "":
-                        self.collapsed_scores[refseq]['max_score'].append(max_score)
-                        
-                    if total_score != "":
-                        self.collapsed_scores[refseq]['total_score'].append(total_score)
+                        self._collapsed_scores[id]['max_score'].append(
+                            max_score)
 
-            if self._all_gene_mode and tokens[refseq_column] == text.NA:
+                    if total_score != "":
+                        self._collapsed_scores[id]['total_score'].append(
+                            total_score)
+
+            if self._all_gene_mode: #and tokens[refseq_column] == text.NA:
                 entrezes = tokens[closest_entrez_column].split(';')
                 symbols = tokens[closest_symbol_column].split(';')
                 refseqs = tokens[closest_refseq_column].split(';')
                 tsses = tokens[closest_tss_column].split(';')
-                type = tokens[closest_type_column]
+                types = tokens[closest_type_column].split(';')
 
                 for i in range(0, len(refseqs)):
                     # The core id identifies the unique genes on a peak, rather than
                     #
-                    entrez = entrezes[i]
-                    symbol = symbols[i]
-                    refseq = refseqs[i]
-                    tss = tsses[i]
+                    id_map = {'gene_symbol':symbols[i], 'refseq':refseqs[i], 'entrez':entrezes[i]}
 
-                    if refseq != text.NA:
-                        self.refseqs.add(refseq)
-                        self.collapsed_entrezes[refseq] = entrez
-                        self.collapsed_symbols[refseq] = symbol
-                        #self.collapsed_p[refseq].append(p)
-                        #self.collapsed_scores[refseq].append(score)
-                        self.collapsed_locations[refseq].append(location)
-                        self.collapsed_tss[refseq].append(tss)
-                        self.collapsed_types[refseq].append(type)
-                        self.collapsed_centromeres[refseq].append(centromere)
-                        
+                    id = id_map[self._collapse_id]
+
+                    tss = tsses[i]
+                    type = types[i]
+
+                    if id == 'ANO10':
+                        print(id, tsses, types, file=sys.stderr)
+
+                    if id != text.NA:
+                        self._collapsed_refseqs[id].add(id_map['refseq'])
+                        self._collapsed_entrezes[id].add(id_map['entrez'])
+                        self._collapsed_gene_symbols[id].add(id_map['gene_symbol'])
+                        # self._collapsed_p[refseq].append(p)
+                        # self._collapsed_scores[refseq].append(score)
+                        self._collapsed_locations[id].append(location)
+                        self._collapsed_tss[id].append(tss)
+                        self._collapsed_types[id].append(type)
+                        self._collapsed_centromeres[id].append(centromere)
+
                         if max_score != "":
-                            self.collapsed_scores[refseq]['max_score'].append(max_score)
+                            self._collapsed_scores[id]['max_score'].append(
+                                max_score)
 
                         if total_score != "":
-                            self.collapsed_scores[refseq]['total_score'].append(total_score)
+                            self._collapsed_scores[id]['total_score'].append(
+                                total_score)
 
             # mir = tokens[mir_column]
 
             # if mir != text.NA:
             #     self.mirs.add(mir)
-            #     self.collapsed_types[mir].append(tokens[mir_type_column])
-            #     #self.collapsed_p[mir].append(p)
-            #     #self.collapsed_scores[mir].append(score)
-            #     self.collapsed_locations[mir].append(location)
-            #     self.collapsed_tss[mir].append(tokens[mss_column])
-            #     self.collapsed_centromeres[mir].append(centromere)
+            #     self._collapsed_types[mir].append(tokens[mir_type_column])
+            #     #self._collapsed_p[mir].append(p)
+            #     #self._collapsed_scores[mir].append(score)
+            #     self._collapsed_locations[mir].append(location)
+            #     self._collapsed_tss[mir].append(tokens[mss_column])
+            #     self._collapsed_centromeres[mir].append(centromere)
 
         f.close()
 
+        print(lc, file=sys.stderr)
+
     def print_header(self):
         """Prints the table header to std out.
-        """        
+        """
         print('\t'.join(self.get_header()))
 
     def get_header(self) -> list[str]:
@@ -481,7 +507,7 @@ class GeneOrientatedPeaks:
         Returns:
             list[str]: The table header as a list of string.
 
-        """        
+        """
         ret = []
         ret.append(headings.REFSEQ_ID)
         ret.append(headings.ENTREZ_ID)
@@ -495,61 +521,70 @@ class GeneOrientatedPeaks:
             ret.append(header)
 
         ret.append(f'{self.type} Relative To Gene')
-        ret.append(f'{self.type} TSS Closest Distance')
         ret.append(f'{self.type} {headings.TSS_DISTANCE}')
+        ret.append(f'{self.type} TSS Closest Distance')
         ret.append(f'{self.type} {headings.CENTROMERE}')
-        #ret.append('miR Symbol')
-        #ret.append('miREP Agilent GCvsN')
-        #ret.append('miREP Agilent GCvsM')
-        #ret.append('sRE GCvsNM')
-        #ret.append('sRE GCvsN')
-        #ret.append(f'{self.type} Relative To miR')
-        #ret.append(f'{self.type} miR Start Closest Distance')
-        #ret.append(f'{self.type} miR Start Distance')
-        #ret.append('Best P-value (ChIPseeqer)')
-        #ret.append('Best Score (ChIPseeqer)')
+        # ret.append('miR Symbol')
+        # ret.append('miREP Agilent GCvsN')
+        # ret.append('miREP Agilent GCvsM')
+        # ret.append('sRE GCvsNM')
+        # ret.append('sRE GCvsN')
+        # ret.append(f'{self.type} Relative To miR')
+        # ret.append(f'{self.type} miR Start Closest Distance')
+        # ret.append(f'{self.type} miR Start Distance')
+        # ret.append('Best P-value (ChIPseeqer)')
+        # ret.append('Best Score (ChIPseeqer)')
         ret.append(f'{self.type} Count')
         ret.append(f'{self.type} Genomic Locations')
-        
 
-        ret.append(f'Highest Total x Max Score')
-        ret.append(f'Highest Total Score')
-        ret.append(f'Highest Max Score')
+        if self._show_scores:
+            ret.append(f'Highest Total x Max Score')
+            ret.append(f'Highest Total Score')
+            ret.append(f'Highest Max Score')
 
-        self._total_score_n = 0
+            self._total_score_n = 0
 
-        for refseq in self.collapsed_scores:
-            self._total_score_n = max(self._total_score_n, len(self.collapsed_scores[refseq]['total_score']))
+            for refseq in self._collapsed_scores:
+                self._total_score_n = max(self._total_score_n, len(
+                    self._collapsed_scores[refseq]['total_score']))
 
-        if self._total_score_n > 0:
-            ret.extend([f'Total Score {i + 1}' for i in range(0, self._total_score_n)])
+            if self._total_score_n > 0:
+                ret.extend(
+                    [f'Total Score {i + 1}' for i in range(0, self._total_score_n)])
 
-        self._max_score_n = 0
+            self._max_score_n = 0
 
-        for refseq in self.collapsed_scores:
-            self._max_score_n = max(self._max_score_n, len(self.collapsed_scores[refseq]['max_score']))
+            for refseq in self._collapsed_scores:
+                self._max_score_n = max(self._max_score_n, len(
+                    self._collapsed_scores[refseq]['max_score']))
 
-        if self._max_score_n > 0:
-            ret.extend([f'Max Score {i + 1}' for i in range(0, self._max_score_n)])
+            if self._max_score_n > 0:
+                ret.extend(
+                    [f'Max Score {i + 1}' for i in range(0, self._max_score_n)])
 
         return ret
 
+    def get_ids(self) -> list[str]:
+        """Returns the ids of the genes/gene ids to write
 
-    def get_ids(self):
-        return sorted(self.refseqs)
+        Returns:
+            list[str]: _description_
+        """
+        return list(sorted(self._collapsed_refseqs))
 
     def get_mirs(self):
         return sorted(self.mirs)
 
     def gene_orient_peak(self, id):
-        entrez = self.collapsed_entrezes[id]
-        symbol = self.collapsed_symbols[id]
+        refseqs = list(sorted(self._collapsed_refseqs[id]))
+        entrezes = list(sorted(self._collapsed_entrezes[id]))
+        symbols = list(sorted(self._collapsed_gene_symbols[id]))
 
         ret = []
 
-        ret.append(id)
-        ret.append(entrez)
-        ret.append(symbol)
+        ret.append(';'.join(refseqs))
+        ret.append(';'.join(entrezes))
+        ret.append(';'.join(symbols))
 
         # ret.append(f'\t{self.affy_gene_cb_vs_n_expression.get_expression(entrez))
         # ret.append(f'\t{self.affy_gene_cb_vs_m_expression.get_expression(entrez))
@@ -557,81 +592,91 @@ class GeneOrientatedPeaks:
         # ret.append(f'\t{self.rna_gene_cb_vs_m_expression.get_expression(entrez))
 
         for expression in self.expression_list:
-            ret.append(expression.get_expression([entrez, symbol]))
+            ret.append(expression.get_expression(refseqs + symbols))
 
-        ret.append(';'.join(self.collapsed_types[id]))
+        ret.append(';'.join(self._collapsed_types[id]))
+
+        ret.append(';'.join(self._collapsed_tss[id]))
 
         # if there are some nearest tss, print the closest
         ret.append(
-            genomic.get_closest_tss(self.collapsed_tss[id]))
-
-        ret.append(';'.join(self.collapsed_tss[id]))
+            genomic.get_closest_tss(self._collapsed_tss[id]))
 
         # Centromeres
-        ret.append(';'.join(self.collapsed_centromeres[id]))
+        ret.append(';'.join(self._collapsed_centromeres[id]))
 
         # no mir symbol
-        #ret.append(text.NA)
+        # ret.append(text.NA)
 
         # no agilent expression
-        #ret.append(text.NA)
-        #ret.append(text.NA)
+        # ret.append(text.NA)
+        # ret.append(text.NA)
 
         # no small rna
-        #ret.append(text.NA)
-        #ret.append(text.NA)
+        # ret.append(text.NA)
+        # ret.append(text.NA)
 
         # no peak relative to mir
-        #ret.append(text.NA)
-        #ret.append(text.NA)
-        #ret.append(text.NA)
+        # ret.append(text.NA)
+        # ret.append(text.NA)
+        # ret.append(text.NA)
 
         # pick the smallest p
-        #p = sorted(self.collapsed_p[id])
-        #ret.append(p[0])
+        # p = sorted(self._collapsed_p[id])
+        # ret.append(p[0])
 
         # pick the largest score
-        #scores = sorted(self.collapsed_scores[id], reverse=True)
-        #ret.append(scores[0])
+        # scores = sorted(self._collapsed_scores[id], reverse=True)
+        # ret.append(scores[0])
 
         # peak count
-        ret.append(len(self.collapsed_locations[id]))
+        ret.append(len(self._collapsed_locations[id]))
 
-        ret.append(';'.join(self.collapsed_locations[id]))
+        ret.append(';'.join(self._collapsed_locations[id]))
 
         highest_total_max = -1
         highest_total = -1
         highest_max = -1
 
-        if len(self.collapsed_scores[id]['total_score']) > 0:
-            for i in range(len(self.collapsed_scores[id]['total_score'])):
-                s = self.collapsed_scores[id]['total_score'][i] * self.collapsed_scores[id]['max_score'][i]
-
-                print(id, s, file=sys.stderr)
+        if len(self._collapsed_scores[id]['total_score']) > 0:
+            for i in range(len(self._collapsed_scores[id]['total_score'])):
+                s = self._collapsed_scores[id]['total_score'][i] * \
+                    self._collapsed_scores[id]['max_score'][i]
 
                 if s > highest_total_max:
                     highest_total_max = s
-                    highest_total = self.collapsed_scores[id]['total_score'][i]
-                    highest_max = self.collapsed_scores[id]['max_score'][i]
+                    highest_total = self._collapsed_scores[id]['total_score'][i]
+                    highest_max = self._collapsed_scores[id]['max_score'][i]
 
-        ret.append(str(highest_total_max))
-        ret.append(str(highest_total))
-        ret.append(str(highest_max))
+        if self._show_scores:
+            ret.append(str(highest_total_max))
+            ret.append(str(highest_total))
+            ret.append(str(highest_max))
 
-        # only add scores to table if there are 
-        if len(self.collapsed_scores[id]['total_score']) > 0:
-            d = [text.NA] * self._total_score_n
-            d[0:len(self.collapsed_scores[id]['total_score'])] = [str(x) for x in self.collapsed_scores[id]['total_score']]
-            ret.extend(d)
+            # only add scores to table if there are
+            if len(self._collapsed_scores[id]['total_score']) > 0:
+                d = [text.NA] * self._total_score_n
+                d[0:len(self._collapsed_scores[id]['total_score'])] = [str(x)
+                                                                      for x in self._collapsed_scores[id]['total_score']]
+                ret.extend(d)
 
-        if len(self.collapsed_scores[id]['max_score']) > 0:
-            d = [text.NA] * self._max_score_n
-            d[0:len(self.collapsed_scores[id]['max_score'])] = [str(x) for x in self.collapsed_scores[id]['max_score']]
-            ret.extend(d)
-
-        print('\t'.join([str(x) for x in ret]))
+            if len(self._collapsed_scores[id]['max_score']) > 0:
+                d = [text.NA] * self._max_score_n
+                d[0:len(self._collapsed_scores[id]['max_score'])] = [str(x)
+                                                                    for x in self._collapsed_scores[id]['max_score']]
+                ret.extend(d)
 
         return ret
+    
+    def print_gene_orient_peak(self, id):
+        print('\t'.join([str(x) for x in self.gene_orient_peak(id)]))
+
+    def print_gene_orient_peaks(self):
+        self.print_header()
+
+        for id in self.get_ids():
+            self.print_gene_orient_peak(id)
+
 
     def mir_orient_peak(self, mir):
         ret = []
@@ -643,7 +688,7 @@ class GeneOrientatedPeaks:
         # Fill in the gap
         ret.extend([text.NA] * 5)
 
-        ret.append(';'.join(self.collapsed_centromeres[mir]))
+        ret.append(';'.join(self._collapsed_centromeres[mir]))
         ret.append(mir)
         ret.append(
             self.agilent_mir_cb_vs_n_expression.get_expression(mir))
@@ -651,21 +696,21 @@ class GeneOrientatedPeaks:
             self.agilent_mir_cb_vs_m_expression.get_expression(mir))
         ret.append(self.solid_mir_expression.get_expression(mir))
         ret.append(self.solid_mir_cb_vs_n_expression.get_expression(mir))
-        ret.append(';'.join(self.collapsed_types[mir]))
+        ret.append(';'.join(self._collapsed_types[mir]))
         ret.append(
-            genomic.get_closest_tss(self.collapsed_tss[mir]))
-        ret.append(';'.join(self.collapsed_tss[mir]))
+            genomic.get_closest_tss(self._collapsed_tss[mir]))
+        ret.append(';'.join(self._collapsed_tss[mir]))
 
         # pick the smallest p
-        p = sorted(self.collapsed_p[mir])
+        p = sorted(self._collapsed_p[mir])
         ret.append(p[0])
 
         # pick the largest score
-        scores = sorted(self.collapsed_scores[mir], reverse=True)
+        scores = sorted(self._collapsed_scores[mir], reverse=True)
         ret.append(scores[0])
 
-        ret.append(len(self.collapsed_locations[mir]))
-        ret.append(';'.join(self.collapsed_locations[mir]))
+        ret.append(len(self._collapsed_locations[mir]))
+        ret.append(';'.join(self._collapsed_locations[mir]))
 
         print('\t'.join([str(x) for x in ret]))
 

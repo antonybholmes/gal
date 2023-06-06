@@ -359,10 +359,6 @@ def _min_common_regions(uids: list[str],
 
             overlap_location = str(loc1)  # f'{chr1}:{start1}-{end1}'
 
-            # if (location_map[uid1].start == 100008783):
-            #	print(loc1, loc2, max_loc.start <= min_loc.end, overlap, overlap_start, grouped_locations)
-            # exit(0)
-
             # if there are multiple locations, group them and mark as
             # allocated. If there is only one location, it either means
             # we found nothing or the loops are exhausted.
@@ -518,6 +514,7 @@ def create_overlap_table(files: list[str], core_regions=min_common_regions):
                     tokens, "Total Score")
                 ext_col_indexes['Max Score'] = text.find_index(
                     tokens, "Max Score")
+                
             elif ("narrowPeak" in file or "broadPeak" in file) and not file.endswith('bed'):
                 ext_cols = ["fold_change", "-log10pvalue", "-log10qvalue"]
                 ext_col_indexes['fold_change'] = 6
@@ -602,9 +599,11 @@ def create_overlap_table(files: list[str], core_regions=min_common_regions):
 
         locs: list[genomic.Location] = []
 
+        # a uid is effectively a peak
+
         for sid in sids:
             if sid in location_core_map[core_location]:
-                uid = location_core_map[core_location][sid]
+                #uid = location_core_map[core_location][sid]
                 locs.extend(genomic.sort_locations(
                     [location_map[uid] for uid in location_core_map[core_location][sid]]))
 
@@ -626,7 +625,14 @@ def create_overlap_table(files: list[str], core_regions=min_common_regions):
         for sid in sids:
             if sid in location_core_map[core_location]:
                 # for location in location_core_map[core_location][id]:
-                uid = location_core_map[core_location][sid]
+
+                # core location will return a set of peaks for a sample,
+                # in the mcr case this will be 1 sample, but just in case
+                # sort by name and pick first
+                uid = list(sorted(location_core_map[core_location][sid]))[0]
+                
+                #print(ext_cols, uid)
+
                 row.extend([str(ext_data[uid][col]) for col in ext_cols])
             else:
                 row.extend([text.NA] * len(ext_cols))

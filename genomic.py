@@ -284,7 +284,7 @@ class FeatureSet:
 
 
 class GenomicSearch(ABC):
-    def get_closest_feature(self, location: Location) -> FeatureSet:
+    def get_closest_feature(self, location: Location) -> Location:
         featureSet: FeatureSet = self.get_closest_features(location)
 
         if featureSet is None:
@@ -428,7 +428,7 @@ class BlockSearch(GenomicSearch):
         self._features = collections.defaultdict(
             lambda: collections.defaultdict(FeatureSet))
 
-    def add_feature(self, location: Location, feature: Any):
+    def add_feature(self, location: Location, feature: Location):
         s = int(location.start / self._block_size)
         e = int(location.end / self._block_size)
 

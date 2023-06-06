@@ -186,6 +186,7 @@ class RefSeqTssClassification:
 				if mid_point >= promoter_start and mid_point <= promoter_end:
 					types.add(self._promoter_label)
 
+				# exonic
 				in_exon = False
 
 				for i in range(0, len(self._exon_starts[var_id])):
@@ -195,13 +196,15 @@ class RefSeqTssClassification:
 						break
 
 				# if you're not exonic and you are within the gene, you must
-				# be intronic
+				# be intronic (in gene)
 				if not in_exon and mid_point >= gene_start and mid_point <= gene_end:
 					types.add('intronic')
 
 		if 'exonic' in types and 'intronic' in types:
 			# We favor classifying as intronic where possible
 			types.remove('exonic')
+
+		# classificatio of promoter really means promoter intergenic (outside gene tx)
 
 		if len(types) == 0:
 			# No types implies integenic
@@ -252,7 +255,7 @@ class RefSeqAnnotation:
 
 		self._bin_size = bin_size
 
-		self.entrezes = collections.defaultdict(str)
+		self._transcript_to_gene_map = collections.defaultdict(str)
 		self._gene_strands = collections.defaultdict(
 			lambda: collections.defaultdict(lambda: collections.defaultdict(str)))
 		self._gene_start_map = collections.defaultdict(
@@ -266,9 +269,9 @@ class RefSeqAnnotation:
 		self._exon_counts = collections.defaultdict(
 			lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
 		self.exon_starts = collections.defaultdict(
-			lambda: collections.defaultdict(lambda: collections.defaultdict(list)))
+			lambda: collections.defaultdict(lambda: collections.defaultdict(list[int])))
 		self._exon_ends = collections.defaultdict(
-			lambda: collections.defaultdict(lambda: collections.defaultdict(list)))
+			lambda: collections.defaultdict(lambda: collections.defaultdict(list[int])))
 		self._refseq_class = RefSeqTssClassificationFactory.getInstance(
 			file, prom_ext_5p, prom_ext_3p)
 
@@ -312,7 +315,7 @@ class RefSeqAnnotation:
 			if re.match(r'.*MIR.*', symbol):
 				continue
 
-			self.entrezes[refseq] = entrez
+			self._transcript_to_gene_map[refseq] = entrez
 
 			ex_starts = [int(p) + 1 for p in tokens[8].split(",")]
 			ex_ends = [int(p) for p in tokens[9].split(",")]
@@ -329,24 +332,25 @@ class RefSeqAnnotation:
 			start_bin = int((start - max_offset) / bin_size)
 			end_bin = int((end + max_offset) / bin_size)
 
-			variant_id = genes.create_variant_id(
+			# essentially transcript id
+			transcript_id = genes.create_variant_id(
 				refseq, chr, start, end)
 
 			for bin in range(start_bin, end_bin + 1):
 				# apparently refseq genes from the ucsc always report
 				# coordinates on the forward strand regardless of orientation
-				self._gene_strands[chr][bin][variant_id] = strand
-				self._gene_start_map[chr][bin][variant_id] = start
-				self._gene_end_map[chr][bin][variant_id] = end
-				self._promoter_starts[chr][bin][variant_id] = promoter_start
-				self._promoter_ends[chr][bin][variant_id] = promoter_end
-				self._exon_counts[chr][bin][variant_id] = exon_count
+				self._gene_strands[chr][bin][transcript_id] = strand
+				self._gene_start_map[chr][bin][transcript_id] = start
+				self._gene_end_map[chr][bin][transcript_id] = end
+				self._promoter_starts[chr][bin][transcript_id] = promoter_start
+				self._promoter_ends[chr][bin][transcript_id] = promoter_end
+				self._exon_counts[chr][bin][transcript_id] = exon_count
 
 				for p in ex_starts:
-					self.exon_starts[chr][bin][variant_id].append(p)
+					self.exon_starts[chr][bin][transcript_id].append(p)
 
 				for p in ex_ends:
-					self._exon_ends[chr][bin][variant_id].append(p)
+					self._exon_ends[chr][bin][transcript_id].append(p)
 
 		f.close()
 
@@ -366,7 +370,7 @@ class RefSeqAnnotation:
 		end_bin = int(location.end / self._bin_size)
 
 		# first find all the variants we might belong to
-		closest_variants = collections.defaultdict()
+		closest_transcripts = collections.defaultdict()
 		closest_d = collections.defaultdict(int)
 		closest_abs_d = collections.defaultdict(int)
 
@@ -374,25 +378,29 @@ class RefSeqAnnotation:
 			if not bin in self._gene_start_map[location.chr]:
 				continue
 
-			for variant_id in self._gene_start_map[location.chr][bin]:
-				refseq = genes.parse_id_from_variant(variant_id)
+			for transcript_id in self._gene_start_map[location.chr][bin]:
+				refseq = genes.parse_id_from_variant(transcript_id)
 
-				entrez = self.entrezes[refseq]
+				gene_id = self._transcript_to_gene_map[refseq]
 
-				strand = self._gene_strands[location.chr][bin][variant_id]
+				strand = self._gene_strands[location.chr][bin][transcript_id]
 
-				gene_start = self._gene_start_map[location.chr][bin][variant_id]
-				gene_end = self._gene_end_map[location.chr][bin][variant_id]
+				gene_start = self._gene_start_map[location.chr][bin][transcript_id]
+				gene_end = self._gene_end_map[location.chr][bin][transcript_id]
 
 				#
 				# Deal with a peak being in a promoter
 				#
 
-				promoter_start = self._promoter_starts[location.chr][bin][variant_id]
-				promoter_end = self._promoter_ends[location.chr][bin][variant_id]
+				promoter_start = self._promoter_starts[location.chr][bin][transcript_id]
+				promoter_end = self._promoter_ends[location.chr][bin][transcript_id]
 
 				absd = -1
 
+				# we are considered as being within a gene if we fall inside
+				# the gene coordinates with the promoter extension, i.e. even
+				# if outside the gene a bit, we are still considered overlapping
+				# the gene if in the promoter region
 				if strand == "+":
 					# for short genes we need to check the max distance of
 					# gene end or promoter end
@@ -408,23 +416,23 @@ class RefSeqAnnotation:
 
 				if absd != -1:
 					# we are in a variant so record the closest in the entrez group
-					if entrez in closest_abs_d:
-						if absd < closest_abs_d[entrez]:  # closest_d[entrez]
-							closest_variants[entrez] = variant_id
-							closest_d[entrez] = d
-							closest_abs_d[entrez] = absd
+					if gene_id in closest_abs_d:
+						if absd < closest_abs_d[gene_id]:  # closest_d[entrez]
+							closest_transcripts[gene_id] = transcript_id
+							closest_d[gene_id] = d
+							closest_abs_d[gene_id] = absd
 					else:
-						closest_variants[entrez] = variant_id
-						closest_d[entrez] = d
-						closest_abs_d[entrez] = absd
+						closest_transcripts[gene_id] = transcript_id
+						closest_d[gene_id] = d
+						closest_abs_d[gene_id] = absd
 
-		# Now classify each separate closest variant (which must all have a different entrez id)
+		# Now classify each separate closest variant/transcript (which must all have a different entrez id)
 
 		ret = []
 
-		for entrez in sorted(closest_variants):
-			variant_id = closest_variants[entrez]
-			gene = self._refseq_class.classify(variant_id, mid_point)
+		for gene_id in sorted(closest_transcripts):
+			transcript_id = closest_transcripts[gene_id]
+			gene = self._refseq_class.classify(transcript_id, mid_point)
 			ret.append(gene)
 
 		return ret

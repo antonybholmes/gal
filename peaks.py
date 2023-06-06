@@ -824,7 +824,7 @@ class AnnotatePeak:
 			
 			# see if we have a width col
 
-			has_width_col = len(list(filter(lambda x: 'width' in x.lower(), tokens))) > 0
+			has_width_col = len(list(filter(lambda x: 'width' in x.lower(), file_header))) > 0
 
 			if not has_width_col:
 				file_header += [WIDTH_HEADING]
@@ -988,7 +988,7 @@ class AnnotatePeak:
 					annotation += [str(location)]
 
 				if not has_width_col:
-					annotation += [WIDTH_HEADING]
+					annotation += [width]
 
 				
 				#annotation.append(location)
@@ -999,6 +999,7 @@ class AnnotatePeak:
 				#	row_map[file_header[i]] = tokens[i - 2]
 
 				for i in range(len(tokens)):
+					print(i, file_header, tokens)
 					row_map[file_header[i]] = tokens[i]
 				
 				row_map[WIDTH_HEADING] = width
@@ -1022,7 +1023,11 @@ class AnnotatePeak:
 
 		# turn the annotations into a table
 
+		for i in range(len(annotations)):
+			if len(annotations[i]) > 44:
+				print(annotations[i])
 
+		print(len(annotations), len(annotations[0]), len(self._header))
 
 		df = pd.DataFrame(annotations, columns=self._header)
 

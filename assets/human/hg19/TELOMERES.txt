@@ -1,0 +1,3 @@
+UCSC
+Select group: All Tables table: gap
+"Then filter ""create"" button and type match ""telomere"". Then submit and get output."
