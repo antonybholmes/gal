@@ -85,7 +85,7 @@ def duplicate_peaks(type, file):
 	# mss_column = text.find_index(
 	#	header, 'miR Start Distance')
 
-	print('\t'.join(header))
+	#print('\t'.join(header))
 
 	for line in f:
 		ls = line.strip()
@@ -798,6 +798,9 @@ class AnnotatePeak:
 		elif file.endswith('narrowPeak') or file.endswith('broadPeak'):
 			file_header = [LOCATION_HEADING,
 							 WIDTH_HEADING, "-log10(pvalue)", "-log10(qvalue)", "Fold Change"]
+		elif file.endswith('bed'):
+			# bed  
+			file_header = [LOCATION_HEADING, WIDTH_HEADING]
 		elif 'overlap_sum' in file:
 			file_header = [LOCATION_HEADING,
 							 WIDTH_HEADING, "Total Score", "Max Score", "Overlapping Bases", "% Bases Overlap"]
@@ -806,9 +809,6 @@ class AnnotatePeak:
 							 WIDTH_HEADING, "Total Score", "Max Score", "Number Of Overlapping Peaks", "P1", "P2"]
 			# skip header
 			f.readline()
-		elif file.endswith('bed'):
-			# bed  
-			file_header = [LOCATION_HEADING, WIDTH_HEADING]
 		else:
 			# other files such as tables
 			tokens = f.readline().strip().split('\t')
@@ -951,6 +951,10 @@ class AnnotatePeak:
 				row_map["Fold Change"] = score
 				row_map["-log10(pvalue)"] = p
 				row_map["-log10(qvalue)"] = q
+			elif file.endswith('bed'):
+				# bed or other
+				annotation = [str(location), width]
+				row_map[WIDTH_HEADING] = width
 			elif 'overlap_sum' in file:
 				score = float(tokens[2])
 				max_score = float(tokens[3])
@@ -977,10 +981,6 @@ class AnnotatePeak:
 				row_map["Overlaps"] = overlaps
 				row_map["P1"] = p1
 				row_map["P2"] = p2
-			elif file.endswith('bed'):
-				# bed or other
-				annotation = [str(location), width]
-				row_map[WIDTH_HEADING] = width
 			else:
 				annotation = tokens
 				
@@ -999,7 +999,7 @@ class AnnotatePeak:
 				#	row_map[file_header[i]] = tokens[i - 2]
 
 				for i in range(len(tokens)):
-					print(i, file_header, tokens)
+					#print(i, file_header, tokens)
 					row_map[file_header[i]] = tokens[i]
 				
 				row_map[WIDTH_HEADING] = width
@@ -1023,11 +1023,13 @@ class AnnotatePeak:
 
 		# turn the annotations into a table
 
-		for i in range(len(annotations)):
-			if len(annotations[i]) > 44:
-				print(annotations[i])
 
-		print(len(annotations), len(annotations[0]), len(self._header))
+		#print(len(annotations), len(annotations[0]), len(self._header))
+
+		if len(annotations[0]) != len(self._header):
+			print('mismatch', file)
+			print('mismatch', "\t".join(self._header))
+			print('mismatch', "\t".join([str(x) for x in annotations[0]]))
 
 		df = pd.DataFrame(annotations, columns=self._header)
 
