@@ -45,14 +45,14 @@ def one_base_loc(start: int, end: int) -> tuple[int, int]:
 
 
 def promoter_type(prom_ext_5p: int = 2000, prom_ext_3p: int = 1000):
-    return f'prom=-{prom_ext_5p / 1000}/+{prom_ext_3p / 1000}kb'
+    return f"prom=-{prom_ext_5p / 1000}/+{prom_ext_3p / 1000}kb"
 
 
 def promoter_heading(prom_ext_5p: int = 2000, prom_ext_3p: int = 1000):
-    return f'({promoter_type(prom_ext_5p, prom_ext_3p)})'
+    return f"({promoter_type(prom_ext_5p, prom_ext_3p)})"
 
 
-def location_string(chr: str, start: int, end: int, strand: str = '+') -> str:
+def location_string(chr: str, start: int, end: int, strand: str = "+") -> str:
     """
     Returns a standardized string representation of a genomic location.
 
@@ -65,10 +65,11 @@ def location_string(chr: str, start: int, end: int, strand: str = '+') -> str:
     """
     start, end = one_base_loc(start, end)
 
-    if strand == '+':
-        return f'{chr}:{str(start)}-{str(end)}'
+    if strand == "+":
+        return f"{chr}:{str(start)}-{str(end)}"
     else:
-        return f'{chr}:{str(end)}-{str(start)}'
+        return f"{chr}:{str(end)}-{str(start)}"
+
 
 # class Strand(Enum):
 #     PLUS = 1
@@ -80,7 +81,7 @@ class Location:
     Represents a genomic location.
     """
 
-    def __init__(self, chr: str, start: int, end: int, strand: str = '+'):
+    def __init__(self, chr: str, start: int, end: int, strand: str = "+"):
         """
         Creates a new location object
 
@@ -123,10 +124,29 @@ class Location:
 
     def __repr__(self) -> str:
         return self.__str__()
-    
+
     def __len__(self) -> int:
         return self.length
-    
+
+    def __eq__(self, other):
+        return (
+            self.chr == other.chr
+            and self.start == other.start
+            and self.end == other.end
+        )
+
+    def __lt__(self, other):
+        if self.chr < other.chr:
+            return True
+
+        if self.start < other.start:
+            return True
+
+        if self.end < other.end:
+            return True
+
+        return False
+
 
 def sort_locations(locations: Iterable[Location]):
     """Sort locations by chr and start
@@ -198,7 +218,9 @@ def gap_dist(l1: Location, l2: Location) -> int:
     if l1 is None or l2 is None:
         return -1
 
-    return min(mid_point_dist(l1, l2), abs(max(l1.start, l2.start) - min(l1.end, l2.end)))
+    return min(
+        mid_point_dist(l1, l2), abs(max(l1.start, l2.start) - min(l1.end, l2.end))
+    )
 
 
 class Feature(Location):
@@ -206,7 +228,7 @@ class Feature(Location):
     Represents a named genomic location with multiple ids.
     """
 
-    def __init__(self, chr: str, start: int, end: int, strand: str = '+'):
+    def __init__(self, chr: str, start: int, end: int, strand: str = "+"):
         """_summary_
 
         Args:
@@ -326,20 +348,25 @@ class GenomicSearch(ABC):
 class GappedSearch(GenomicSearch):
     def __init__(self):
         self._features = collections.defaultdict(
-            lambda: collections.defaultdict(FeatureSet))
+            lambda: collections.defaultdict(FeatureSet)
+        )
         self._starts = collections.defaultdict(list)
         self._locked: bool = False
 
     def add_feature(self, location: Location, feature: Any):
         self._locked = False
 
-        if location.chr not in self.features or location.start not in self.features[location.chr]:
-            self.features[location.chr][location.start] = FeatureSet(
-                location.start)
+        if (
+            location.chr not in self.features
+            or location.start not in self.features[location.chr]
+        ):
+            self.features[location.chr][location.start] = FeatureSet(location.start)
 
-        if location.chr not in self.features or location.end not in self.features[location.chr]:
-            self.features[location.chr][location.end] = FeatureSet(
-                location.end)
+        if (
+            location.chr not in self.features
+            or location.end not in self.features[location.chr]
+        ):
+            self.features[location.chr][location.end] = FeatureSet(location.end)
 
         self._features[location.chr][location.start].add(feature)
         self._features[location.chr][location.end].add(feature)
@@ -426,14 +453,18 @@ class BlockSearch(GenomicSearch):
         self._block_size = block_size
         self._max_bin = 0
         self._features = collections.defaultdict(
-            lambda: collections.defaultdict(FeatureSet))
+            lambda: collections.defaultdict(FeatureSet)
+        )
 
     def add_feature(self, location: Location, feature: Location):
         s = int(location.start / self._block_size)
         e = int(location.end / self._block_size)
 
         for b in range(s, e + 1):
-            if location.chr not in self._features or b not in self._features[location.chr]:
+            if (
+                location.chr not in self._features
+                or b not in self._features[location.chr]
+            ):
                 self._features[location.chr][b] = FeatureSet(location.start)
 
             self._features[location.chr][b].add(feature)
@@ -535,7 +566,7 @@ def is_location(location: str):
     Returns:
             bool: True if string looks like a location
     """
-    return re.match(r'(chr.+):(\d+)-(\d+)', location)
+    return re.match(r"(chr.+):(\d+)-(\d+)", location)
 
 
 def is_chr(location: str) -> bool:
@@ -548,7 +579,7 @@ def is_chr(location: str) -> bool:
     Returns:
             bool: True if contains "chr"
     """
-    return re.match(r'(chr.+)', location)
+    return re.match(r"(chr.+)", location)
 
 
 def parse_location(location: str, padding5p: int = 0, padding3p: int = 0) -> Location:
@@ -564,7 +595,7 @@ def parse_location(location: str, padding5p: int = 0, padding3p: int = 0) -> Loc
             Location: A location object representing the location string.
     """
 
-    matcher = re.match(r'.*(chr.+):(\d+)-(\d+).*', location)
+    matcher = re.match(r".*(chr.+):(\d+)-(\d+).*", location.replace(",", ""))
 
     chr = matcher.group(1)
     start = int(matcher.group(2))
@@ -580,18 +611,22 @@ def parse_location_cols(tokens: list[str], offset: int = 0) -> Location:
 def pad_location(location: Location, padding5p: int = 0, padding3p: int = 0):
     return Location(location.chr, location.start - padding5p, location.end + padding3p)
 
+
 def max_region(location1: Location, location2: Location) -> Union[None, Location]:
     if location1.chr != location2.chr:
         return None
 
     min_start = min(location1.start, location2.start)
-    #max_end = max(location1.end, location2.end)
-    #min_start = min(location1.start, location2.start)
+    # max_end = max(location1.end, location2.end)
+    # min_start = min(location1.start, location2.start)
     max_end = max(location1.end, location2.end)
 
     return Location(location1.chr, min_start, max_end)
 
-def overlap_locations(location1: Location, location2: Location) -> Union[None, Location]:
+
+def overlap_locations(
+    location1: Location, location2: Location
+) -> Union[None, Location]:
     """Overlap two locations and return a location representing the overlap
 
     Args:
@@ -605,8 +640,8 @@ def overlap_locations(location1: Location, location2: Location) -> Union[None, L
         return None
 
     max_start = max(location1.start, location2.start)
-    #max_end = max(location1.end, location2.end)
-    #min_start = min(location1.start, location2.start)
+    # max_end = max(location1.end, location2.end)
+    # min_start = min(location1.start, location2.start)
     min_end = min(location1.end, location2.end)
 
     if min_end < max_start:
@@ -618,10 +653,23 @@ def overlap_locations(location1: Location, location2: Location) -> Union[None, L
     #         location2.start > location1.end:
     #     return None
 
-    #start = max(location1.start, location2.start)
-    #end = min(location1.end, location2.end)
+    # start = max(location1.start, location2.start)
+    # end = min(location1.end, location2.end)
 
     return Location(location1.chr, max_start, min_end)
+
+
+def max_region_from_locs(locs: list[Location]) -> Union[Location, None]:
+    """
+    Given a list of locations, return the maximum overlap
+    """
+
+    # locs = list(sorted(locs))
+
+    start = min([loc.start for loc in locs])
+    end = max([loc.end for loc in locs])
+
+    return Location(locs[0].chr, start, end)
 
 
 def overlap_fraction(location1: Location, location2: Location) -> float:
@@ -636,13 +684,13 @@ def overlap_fraction(location1: Location, location2: Location) -> float:
     """
     if location1 is None or location2 is None:
         return 0
-    
+
     if location1.chr != location2.chr:
         return 0
 
     max_start = max(location1.start, location2.start)
-    #max_end = max(location1.end, location2.end)
-    #min_start = min(location1.start, location2.start)
+    # max_end = max(location1.end, location2.end)
+    # min_start = min(location1.start, location2.start)
     min_end = min(location1.end, location2.end)
 
     if min_end < max_start:
@@ -656,8 +704,8 @@ def is_overlapping(location1: Location, location2: Location) -> bool:
         return False
 
     max_start = max(location1.start, location2.start)
-    #max_end = max(location1.end, location2.end)
-    #min_start = min(location1.start, location2.start)
+    # max_end = max(location1.end, location2.end)
+    # min_start = min(location1.start, location2.start)
     min_end = min(location1.end, location2.end)
 
     return max_start <= min_end  # return max_start >= min_start and max_start < min_end
@@ -691,7 +739,7 @@ def load_locations(file, center=False, padding5p=0, padding3p=0):
     Load a set of locations
     """
 
-    f = open(file, 'r')
+    f = open(file, "r")
 
     header = f.readline().strip()
 
@@ -721,7 +769,7 @@ class SearchGenomicFeatures(GappedSearch):
     def __init__(self, file: str):
         super().__init__()
 
-        f = open(file, 'r')
+        f = open(file, "r")
 
         f.readline()
 
@@ -771,14 +819,22 @@ class GenomicFeaturesOverlap:
 
 
 class Annotation(ABC):
-    """ 
+    """
     Modules for annotating a peak by appending columns to a row of
     peak meta data.
     """
 
-    def __init__(self, name: str, species: species.Species = species.Species.HUMAN, version: str = '1.0.0'):
-        self._metadata = {'name': name,
-                          'species': species.name.lower(), 'version': version}
+    def __init__(
+        self,
+        name: str,
+        species: species.Species = species.Species.HUMAN,
+        version: str = "1.0.0",
+    ):
+        self._metadata = {
+            "name": name,
+            "species": species.name.lower(),
+            "version": version,
+        }
 
     @abstractmethod
     def get_names(self) -> list[str]:
@@ -801,7 +857,7 @@ class Annotation(ABC):
 
         Args:
                 location (Location): Location to annotated.
-                row_map (Mapping[str, Any]):    Annotations already assigned using 
+                row_map (Mapping[str, Any]):    Annotations already assigned using
                                                                                 header name as key. This is to
                                                                                 allow annotation to be based on
                                                                                 previous modules.
