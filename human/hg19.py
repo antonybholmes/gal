@@ -44,8 +44,7 @@ UCSC_CENTROMERES_FILE = os.path.join(
 UCSC_TELOMERES_FILE = os.path.join(
     core.PATH, "assets/human/hg19/ucsc_telomeres.bed")
 
-ENCODE_BLACKLIST_FILE = os.path.join(
-    core.PATH, "assets/human/hg19/encode_blacklist.bed")
+ENCODE_BLACKLIST_FILE = "/ifs/scratch/cancer/Lab_RDF/ngs/references/encode/blacklists/hg19/encode_blacklist.bed"
 
 GIULIA_BLACKLIST_FILE = os.path.join(
     core.PATH, "assets/human/hg19/rdf_giulia_blacklist_hg19.bed")

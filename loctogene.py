@@ -23,36 +23,35 @@ from .genomic import Location
 # ensures the forward strand start is always used regardless of gene
 # orientation
 
-WITHIN_SQL = ("SELECT id, chr, start, end, strand, gene_id, gene_name, MIN(start, end) - ? "
+WITHIN_SQL = ("SELECT id, chr, start, end, strand, gene_id, gene_symbol, MIN(start, end) - ? "
               "FROM genes "
-              "WHERE level=1 AND chr=? AND ((start>=? AND start <= ?) OR (END >= ? AND end <= ?)) "
-              "ORDER BY MIN(start, end) ASC")
+              "WHERE level = 1 AND chr = ? AND ((start <= ? AND end >= ?) OR (start <= ? AND end >= ?)) "
+              "ORDER BY start ASC")
 
-CLOSEST_SQL = ("SELECT id, chr, start, end, strand, gene_id, gene_name, start - ? "
+CLOSEST_SQL = ("SELECT id, chr, start, end, strand, gene_id, gene_symbol, stranded_start - ? "
                "FROM genes "
                "WHERE level=1 AND chr=? "
-               "ORDER BY ABS(start - ?) ASC "
+               "ORDER BY ABS(stranded_start - ?) ASC "
                "LIMIT ?")
 
 class Loctogene:
     def __init__(self, db: str):
         self._db = db
-        self._con = sqlite3.connect(db)
-        self._cursor = self._con.cursor()
+        self._conn = sqlite3.connect(db)
+        self._cursor = self._conn.cursor()
 
     def close(self):
         self._cursor.close()
-        self._con.close()
+        self._conn.close()
 
     def get_genes_within(self, loc: Location) -> list[dict[str, Union[str, int]]]:
         mid = int((loc.start + loc.end) / 2)
 
-       
+        self._conn.set_trace_callback(print)
         rows = self._cursor.execute(
             WITHIN_SQL,
-            [mid, loc.chr, loc.start, loc.end, loc.start, loc.end],
+            [mid, loc.chr, loc.start, loc.start, loc.end, loc.end],
         ).fetchall()
-
      
         return Loctogene._format_rows(rows)
 
@@ -81,7 +80,7 @@ class Loctogene:
                 "end": row[3] if row[4] == "+" else row[2],
                 "strand": row[4],
                 "gene_id": row[5],
-                "gene_name": row[6],
+                "gene_symbol": row[6],
                 "dist": row[7],
             }
             for row in rows

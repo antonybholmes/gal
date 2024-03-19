@@ -16,6 +16,7 @@ Copyright (C) 2022 Antony Holmes.
 from abc import ABC, abstractmethod
 import collections
 from enum import Enum
+from functools import total_ordering
 from importlib.metadata import metadata
 import re
 import sys
@@ -65,10 +66,12 @@ def location_string(chr: str, start: int, end: int, strand: str = "+") -> str:
     """
     start, end = one_base_loc(start, end)
 
-    if strand == "+":
-        return f"{chr}:{str(start)}-{str(end)}"
-    else:
-        return f"{chr}:{str(end)}-{str(start)}"
+    return f"{chr}:{str(start)}-{str(end)}"
+
+    # if strand == "+":
+    #     return f"{chr}:{str(start)}-{str(end)}"
+    # else:
+    #     return f"{chr}:{str(end)}-{str(start)}"
 
 
 # class Strand(Enum):
@@ -76,6 +79,28 @@ def location_string(chr: str, start: int, end: int, strand: str = "+") -> str:
 #     MINUS = 2
 
 
+def chr_to_index(chr: str) -> int:
+    """
+    Converts chr1,chr2... into a numerical value e.g. chr1->1,chr2->2 etc.
+    x,y,m are assigned 1000,2000,3000 respectively to preserve order and allow
+    for species with differing numbers of chromosomes (assuming < 1000), but this
+    easily covers human, mouse and other common mammals.
+    """
+    chr = (
+        chr.lower()
+        .replace("chr", "")
+        .replace("x", "1000")
+        .replace("y", "2000")
+        .replace("m", "3000")
+    )
+
+    if chr.isdigit():
+        return int(chr)
+    else:
+        return -1
+
+
+@total_ordering
 class Location:
     """
     Represents a genomic location.
@@ -90,7 +115,11 @@ class Location:
                 start (int): 1 based start location.
                 end (int): 1 based end location.
         """
-        self._chr = chr
+        self._chr = chr  # .lower()
+
+        # turn chr into a numerical id for easier sorting
+        self._index = chr_to_index(chr)
+
         self._start, self._end = one_base_loc(start, end)
         self._length = self._end - self._start + 1
         self._strand = strand
@@ -98,6 +127,10 @@ class Location:
     @property
     def chr(self) -> str:
         return self._chr
+
+    @property
+    def index(self) -> int:
+        return self._index
 
     @property
     def start(self) -> int:
@@ -118,6 +151,22 @@ class Location:
     def to_string(self) -> str:
         return self.__str__()
 
+    @property
+    def values(self) -> list[str, int, int]:
+        return [self.chr, self.start, self.end]
+    
+    @property
+    def bed(self) -> list[str, int, int]:
+        return [self.chr, self.start - 1, self.end]
+
+    @property
+    def bed_string(self) -> str:
+        return "\t".join([str(x) for x in self.bed])
+    
+    @property
+    def id(self) -> str:
+        return "-".join([str(x) for x in self.values])
+
     def __str__(self) -> str:
         # , self.strand)
         return location_string(self.chr, self.start, self.end)
@@ -126,9 +175,13 @@ class Location:
         return self.__str__()
 
     def __len__(self) -> int:
-        return self.length
+        return self._length
+
+    def __hash__(self):
+        return hash(self.__str__())
 
     def __eq__(self, other):
+
         return (
             self.chr == other.chr
             and self.start == other.start
@@ -136,16 +189,18 @@ class Location:
         )
 
     def __lt__(self, other):
-        if self.chr < other.chr:
+        if not isinstance(other, Location):
             return True
 
-        if self.start < other.start:
-            return True
+        if self.index != other.index:
+            return self.index < other.index
 
-        if self.end < other.end:
-            return True
+        # chr same so test positions
 
-        return False
+        if self.start != other.start:
+            return self.start < other.start
+
+        return self.end < other.end
 
 
 def sort_locations(locations: Iterable[Location]):
@@ -341,8 +396,7 @@ class GenomicSearch(ABC):
         return ret
 
     @abstractmethod
-    def get_features(self, location: Location) -> list[FeatureSet]:
-        ...
+    def get_features(self, location: Location) -> list[FeatureSet]: ...
 
 
 class GappedSearch(GenomicSearch):
@@ -706,6 +760,7 @@ def is_overlapping(location1: Location, location2: Location) -> bool:
     max_start = max(location1.start, location2.start)
     # max_end = max(location1.end, location2.end)
     # min_start = min(location1.start, location2.start)
+
     min_end = min(location1.end, location2.end)
 
     return max_start <= min_end  # return max_start >= min_start and max_start < min_end
